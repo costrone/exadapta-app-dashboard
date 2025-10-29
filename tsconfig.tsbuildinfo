@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/components/attempttable.tsx","./src/components/bankeditor.tsx","./src/components/bankselector.tsx","./src/components/itemmanager.tsx","./src/components/levelhistogram.tsx","./src/components/subjectselector.tsx","./src/hooks/useadaptivetest.ts","./src/lib/firebase.ts"],"version":"5.9.3"}

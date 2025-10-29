@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.npm-cache/
+.env*
+.DS_Store
+firebase-debug.log
+.firebase/
+.vscode/

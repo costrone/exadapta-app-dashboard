@@ -1,0 +1,70 @@
+// Production rules with roles inferred from users/{uid} and email domain.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthed() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function userDoc() { return get(/databases/$(database)/documents/users/$(uid())); }
+    function hasUserDoc() { return userDoc().data != null; }
+    // Resolve role in this order: user doc -> roles allowlist -> fallback student
+    function allowlistedRole() {
+      return get(/databases/$(database)/documents/roles/$(request.auth.token.email)).data.role;
+    }
+    function role() {
+      return hasUserDoc() ? userDoc().data.role : (allowlistedRole() != null ? allowlistedRole() : "student");
+    }
+    function isTeacher() { return isAuthed() && (role() == "teacher" || role() == "admin"); }
+    function isAdmin() { return isAuthed() && role() == "admin"; }
+    function isStudent() { return isAuthed() && role() == "student"; }
+    function teacherDomain() {
+      return isAuthed() && request.auth.token.email.matches(".*@colegiovicentepaul\\.es$");
+    }
+
+    match /users/{userId} {
+      allow create: if isAuthed()
+                    && userId == uid()
+                    && request.resource.data.keys().hasOnly(["role","displayName","email","createdAt"])
+                    && request.resource.data.role in ["student","teacher","admin"]
+                    && (
+                         // permit teacher/admin si está allowlisted
+                         (request.resource.data.role in ["teacher","admin"] && allowlistedRole() == request.resource.data.role)
+                         // o si es teacher por dominio
+                         || (request.resource.data.role == "teacher" && teacherDomain())
+                         // o student por defecto
+                         || (request.resource.data.role == "student")
+                       );
+      allow read: if isAuthed() && (userId == uid() || isTeacher());
+      allow update: if isAuthed() && userId == uid()
+                    && resource.data.role == request.resource.data.role
+                    && request.resource.data.diff(resource.data).changedKeys().hasOnly(["displayName","email"]);
+      allow delete: if false;
+    }
+
+    match /banks/{bankId} {
+      allow read, write: if isTeacher();
+    }
+
+    match /items/{itemId} {
+      allow read, write: if isTeacher();
+    }
+
+    match /attempts/{attemptId} {
+      allow create: if isStudent()
+                    && request.resource.data.keys().hasOnly(["userId","bankId","startAt","status","history","thetaEstimate","levelEstimate"])
+                    && request.resource.data.userId == uid()
+                    && request.resource.data.status == "active";
+      allow read: if isTeacher() || (isStudent() && resource.data.userId == uid());
+      allow update: if isStudent()
+                    && resource.data.userId == uid()
+                    && resource.data.status == "active";
+      allow delete: if false;
+    }
+
+    // Allowlist de roles (emails -> role). Solo admin puede gestionarla.
+    match /roles/{email} {
+      allow read: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}
