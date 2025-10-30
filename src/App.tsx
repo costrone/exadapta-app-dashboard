@@ -10,8 +10,11 @@ import { BankSelector } from './components/BankSelector'
 import { BankEditor } from './components/BankEditor'
 import { ItemManager } from './components/ItemManager'
 import { AdminPanel } from './components/AdminPanel'
+import { AIGenerator } from './components/AIGenerator'
 import { Button } from './ui/Button'
 import { Card } from './ui/Card'
+import { ThemeToggle } from './ui/ThemeToggle'
+import { useToast } from './ui/toast'
 
 type Role = 'student' | 'teacher' | 'admin'
 
@@ -83,6 +86,7 @@ async function fetchItems(bankId:string) {
 
 export default function App() {
   const { isDarkMode, toggleTheme } = useTheme()
+  const { show } = useToast()
   const [user, setUser] = useState<any>(null)
   const [role, setRole] = useState<Role>('student')
   const [tab, setTab] = useState<'test'|'dashboard'|'admin'>('test')
@@ -125,6 +129,7 @@ export default function App() {
   async function seedAndStart() {
     const id = await seedDemoBank()
     await startWithBank(id)
+    show('Banco demo creado y cargado', 'success')
   }
 
   async function saveAttemptFinished() {
@@ -138,6 +143,7 @@ export default function App() {
       thetaEstimate: test.estimate,
       levelEstimate: Math.round(test.estimate)
     })
+    show('Intento guardado', 'success')
   }
 
   // Arranca el test de forma segura cuando los ítems están listos
@@ -160,25 +166,25 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="p-4 border-b bg-white flex items-center justify-between">
+    <div className="min-h-screen" style={{ background: 'var(--secondary-bg)' }}>
+      <header className="p-4 border-b bg-blue-600 text-white flex items-center justify-between">
         <h1 className="font-semibold">ExAdapta — Examen Adaptativo</h1>
         <div className="flex items-center gap-3">
           <nav className="hidden sm:flex gap-2 mr-4">
-            <Button onClick={()=>setTab('test')} variant={tab==='test'?'primary':'outline'} size="sm">Estudiante</Button>
+            <Button onClick={()=>setTab('test')} variant={tab==='test'?'ghost':'outline'} size="sm" className="text-white border-white/50 hover:bg-white/10">Estudiante</Button>
             {(role==='teacher' || role==='admin') && (
-              <Button onClick={()=>setTab('dashboard')} variant={tab==='dashboard'?'primary':'outline'} size="sm">Panel docente</Button>
+              <Button onClick={()=>setTab('dashboard')} variant={tab==='dashboard'?'ghost':'outline'} size="sm" className="text-white border-white/50 hover:bg-white/10">Panel docente</Button>
             )}
             {role==='admin' && (
-              <Button onClick={()=>setTab('admin')} variant={tab==='admin'?'primary':'outline'} size="sm">Admin</Button>
+              <Button onClick={()=>setTab('admin')} variant={tab==='admin'?'ghost':'outline'} size="sm" className="text-white border-white/50 hover:bg-white/10">Admin</Button>
             )}
           </nav>
-          {user && <span className="text-sm text-gray-600">{user.email} · <em>{role}</em></span>}
-          <Button onClick={toggleTheme} variant="ghost" size="sm" aria-label="Cambiar tema">{isDarkMode ? 'Modo claro' : 'Modo oscuro'}</Button>
+          {user && <span className="text-sm opacity-90">{user.email} · <em>{role}</em></span>}
+          <ThemeToggle />
           {user ? (
-            <Button onClick={logout} variant="ghost" size="sm">Salir</Button>
+            <Button onClick={logout} variant="outline" size="sm" className="text-white border-white/50 hover:bg-white/10">Salir</Button>
           ) : (
-            <Button onClick={login} variant="outline" size="sm">Entrar con Google</Button>
+            <Button onClick={login} variant="outline" size="sm" className="text-white border-white/50 hover:bg-white/10">Entrar con Google</Button>
           )}
         </div>
       </header>
@@ -337,6 +343,7 @@ function TeacherDashboard({ onSeedAndStart, onStartWithBank } : any) {
 
       <div className="grid lg:grid-cols-2 gap-4">
         <div className="space-y-4">
+          <AIGenerator onCreated={(id)=>{ setBanks(b=>[{ id, name: 'Banco IA', subject: '', policy: {}, scale:{} }, ...b]); setSelected(id) }} />
           <BankEditor onCreated={(id)=>{ setBanks(b=>[{ id, name: 'Nuevo banco', subject: '', policy: {}, scale:{} }, ...b]); setSelected(id) }} />
           {selected && <BankEditor bankId={selected} onUpdated={()=>{ /* refresh banks label */ }} />}
         </div>

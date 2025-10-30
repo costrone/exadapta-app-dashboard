@@ -5,10 +5,12 @@ import { Input } from '../ui/Input'
 import { Textarea } from '../ui/Textarea'
 import { Select } from '../ui/Select'
 import { Button } from '../ui/Button'
+import { useToast } from '../ui/toast'
 
 type Option = { key: string; text: string }
 
 export function ItemManager({ bankId } : { bankId: string }) {
+  const { show } = useToast()
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -40,17 +42,20 @@ export function ItemManager({ bankId } : { bankId: string }) {
     setCorrectKey('A')
     setLevel(3)
     await loadItems()
+    show('Pregunta creada', 'success')
   }
 
   async function saveItem(it:any) {
     await updateDoc(doc(db, 'items', it.id), { stem: it.stem, options: it.options, correctKey: it.correctKey, level: it.level })
     await loadItems()
+    show('Pregunta guardada', 'success')
   }
 
   async function removeItem(id:string) {
     if (!confirm('¿Eliminar esta pregunta?')) return
     await deleteDoc(doc(db, 'items', id))
     await loadItems()
+    show('Pregunta eliminada', 'info')
   }
 
   const grouped = useMemo(() => {

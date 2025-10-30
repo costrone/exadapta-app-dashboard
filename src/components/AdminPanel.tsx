@@ -4,10 +4,12 @@ import { db } from '../lib/firebase'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
 import { Button } from '../ui/Button'
+import { useToast } from '../ui/toast'
 
 type Entry = { email: string; role: 'teacher'|'admin' }
 
 export function AdminPanel() {
+  const { show } = useToast()
   const [entries, setEntries] = useState<Entry[]>([])
   const [loading, setLoading] = useState(false)
   const [email, setEmail] = useState('')
@@ -34,12 +36,14 @@ export function AdminPanel() {
     setEmail('')
     setRole('teacher')
     await load()
+    show('Rol añadido', 'success')
   }
 
   async function removeEntry(e: Entry) {
     if (!confirm(`¿Quitar ${e.email} (${e.role}) de la lista?`)) return
     await deleteDoc(doc(db, 'roles', e.email))
     await load()
+    show('Rol eliminado', 'info')
   }
 
   return (

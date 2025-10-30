@@ -4,6 +4,9 @@ export default {
   darkMode: ["class", "[data-theme='dark']"],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["var(--font-sans)", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Ubuntu", "Cantarell", "Noto Sans", "Helvetica Neue", "Arial", "sans-serif"],
+      },
       colors: {
         blue: {
           50: "#E3F2FD",

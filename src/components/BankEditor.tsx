@@ -4,6 +4,7 @@ import { db } from '../lib/firebase'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
 import { Button } from '../ui/Button'
+import { useToast } from '../ui/toast'
 
 type Policy = {
   minItems: number
@@ -14,8 +15,10 @@ type Policy = {
 }
 
 export function BankEditor({ bankId, onCreated, onUpdated } : { bankId?: string; onCreated?: (id:string)=>void; onUpdated?: ()=>void }) {
+  const { show } = useToast()
   const [name, setName] = useState('')
   const [subject, setSubject] = useState('')
+  const [course, setCourse] = useState('')
   const [policy, setPolicy] = useState<Policy>({ minItems: 8, maxItems: 18, stabilizationDelta: 0.25, stabilizationWindow: 3, startLevel: 3 })
 
   useEffect(() => {
@@ -26,6 +29,7 @@ export function BankEditor({ bankId, onCreated, onUpdated } : { bankId?: string;
         const data = snap.data() as any
         setName(data.name || '')
         setSubject(data.subject || '')
+        setCourse(data.course || '')
         setPolicy({
           minItems: data.policy?.minItems ?? 8,
           maxItems: data.policy?.maxItems ?? 18,
@@ -38,24 +42,27 @@ export function BankEditor({ bankId, onCreated, onUpdated } : { bankId?: string;
   }, [bankId])
 
   async function createBank() {
-    const ref = await addDoc(collection(db, 'banks'), { name, subject, scale: { min: 1, max: 5 }, policy })
+    const ref = await addDoc(collection(db, 'banks'), { name, subject, course, scale: { min: 1, max: 5 }, policy })
     onCreated?.(ref.id)
     setName('')
     setSubject('')
+    setCourse('')
+    show('Banco creado', 'success')
   }
 
   async function updateBank() {
     if (!bankId) return
-    await setDoc(doc(db, 'banks', bankId), { name, subject, scale: { min:1, max:5 }, policy }, { merge: true })
+    await setDoc(doc(db, 'banks', bankId), { name, subject, course, scale: { min:1, max:5 }, policy }, { merge: true })
     onUpdated?.()
+    show('Cambios guardados', 'success')
   }
 
-  const canSave = name.trim().length > 0 && subject.trim().length > 0
+  const canSave = name.trim().length > 0 && subject.trim().length > 0 && course.trim().length > 0
 
   return (
     <div className="rounded-xl border p-4">
       <h3 className="font-semibold">{bankId ? 'Editar banco' : 'Nuevo banco'}</h3>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
         <div>
           <label className="block text-sm text-gray-600 mb-1">Nombre</label>
           <Input value={name} onChange={e=>setName((e.target as HTMLInputElement).value)} placeholder="Banco Física 1º Bach" />
@@ -63,6 +70,10 @@ export function BankEditor({ bankId, onCreated, onUpdated } : { bankId?: string;
         <div>
           <label className="block text-sm text-gray-600 mb-1">Asignatura</label>
           <Input value={subject} onChange={e=>setSubject((e.target as HTMLInputElement).value)} placeholder="physics" />
+        </div>
+        <div>
+          <label className="block text-sm text-gray-600 mb-1">Curso/Nivel</label>
+          <Input value={course} onChange={e=>setCourse((e.target as HTMLInputElement).value)} placeholder="1º ESO, 2º Bach, etc." />
         </div>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-5">

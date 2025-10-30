@@ -5,6 +5,8 @@ html, body, #root { height: 100%; }
 
 /* Paleta y variables del proyecto origen (resumidas) */
 :root {
+  /* Tipografía corporativa (ajustable según manual UCAM) */
+  --font-sans: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   --ucam-blue: #004379;
   --ucam-gold: #EDAB00;
   --ucam-gray-dark: #2D2D2D;
@@ -38,10 +40,24 @@ html, body, #root { height: 100%; }
 
 /* Tipografía y colores globales */
 body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: var(--font-sans);
   color: var(--primary-text);
   background: var(--secondary-bg);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Accesibilidad: focus visible consistente con la marca */
+:focus-visible {
+  outline: 3px solid #2E86C1;
+  outline-offset: 2px;
+}
+
+/* Enlaces con acento de marca */
+a {
+  color: #004379;
+}
+a:hover {
+  color: #255F78;
 }
