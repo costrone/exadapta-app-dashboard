@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTheme } from './theme/ThemeProvider'
 import { login, logout, onUser, auth, db } from './lib/firebase'
 import { useAdaptiveTest, Item } from './hooks/useAdaptiveTest'
 import { collection, addDoc, getDocs, query, where, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore'
@@ -9,6 +10,8 @@ import { BankSelector } from './components/BankSelector'
 import { BankEditor } from './components/BankEditor'
 import { ItemManager } from './components/ItemManager'
 import { AdminPanel } from './components/AdminPanel'
+import { Button } from './ui/Button'
+import { Card } from './ui/Card'
 
 type Role = 'student' | 'teacher' | 'admin'
 
@@ -79,6 +82,7 @@ async function fetchItems(bankId:string) {
 }
 
 export default function App() {
+  const { isDarkMode, toggleTheme } = useTheme()
   const [user, setUser] = useState<any>(null)
   const [role, setRole] = useState<Role>('student')
   const [tab, setTab] = useState<'test'|'dashboard'|'admin'>('test')
@@ -161,21 +165,26 @@ export default function App() {
         <h1 className="font-semibold">ExAdapta — Examen Adaptativo</h1>
         <div className="flex items-center gap-3">
           <nav className="hidden sm:flex gap-2 mr-4">
-            <button onClick={()=>setTab('test')} className={"px-3 py-1.5 rounded-lg border " + (tab==='test'?'bg-blue-600 text-white border-blue-600':'hover:bg-blue-50')}>Estudiante</button>
-            {(role==='teacher' || role==='admin') && <button onClick={()=>setTab('dashboard')} className={"px-3 py-1.5 rounded-lg border " + (tab==='dashboard'?'bg-blue-600 text-white border-blue-600':'hover:bg-blue-50')}>Panel docente</button>}
-            {role==='admin' && <button onClick={()=>setTab('admin')} className={"px-3 py-1.5 rounded-lg border " + (tab==='admin'?'bg-blue-600 text-white border-blue-600':'hover:bg-blue-50')}>Admin</button>}
+            <Button onClick={()=>setTab('test')} variant={tab==='test'?'primary':'outline'} size="sm">Estudiante</Button>
+            {(role==='teacher' || role==='admin') && (
+              <Button onClick={()=>setTab('dashboard')} variant={tab==='dashboard'?'primary':'outline'} size="sm">Panel docente</Button>
+            )}
+            {role==='admin' && (
+              <Button onClick={()=>setTab('admin')} variant={tab==='admin'?'primary':'outline'} size="sm">Admin</Button>
+            )}
           </nav>
           {user && <span className="text-sm text-gray-600">{user.email} · <em>{role}</em></span>}
+          <Button onClick={toggleTheme} variant="ghost" size="sm" aria-label="Cambiar tema">{isDarkMode ? 'Modo claro' : 'Modo oscuro'}</Button>
           {user ? (
-            <button onClick={logout} className="px-3 py-1.5 rounded-lg border">Salir</button>
+            <Button onClick={logout} variant="ghost" size="sm">Salir</Button>
           ) : (
-            <button onClick={login} className="px-3 py-1.5 rounded-lg border">Entrar con Google</button>
+            <Button onClick={login} variant="outline" size="sm">Entrar con Google</Button>
           )}
         </div>
       </header>
 
       <main className="p-6 grid place-items-center">
-        <div className="w-full max-w-5xl p-6 rounded-2xl bg-white shadow border">
+        <Card className="w-full max-w-5xl">
           {!user ? (
             <p className="text-gray-600">Inicia sesión para continuar.</p>
           ) : tab === 'dashboard' && (role === 'teacher' || role === 'admin') ? (
@@ -191,14 +200,14 @@ export default function App() {
                   <div className="mt-4 flex flex-wrap gap-4 items-center">
                     <SubjectSelector value={subject} onChange={(s)=>{ setSubject(s); setBankId('') }} />
                     <BankSelector value={bankId} onChange={setBankId} subject={subject || undefined} />
-                    <button disabled={!bankId} onClick={()=>startWithBank(bankId)} className={"px-4 py-2 rounded-xl border "+(!bankId?"opacity-50 cursor-not-allowed":"bg-blue-600 text-white border-blue-600 hover:bg-blue-700")}>Empezar examen</button>
+                    <Button disabled={!bankId} onClick={()=>startWithBank(bankId)} variant={bankId? 'primary':'ghost'}>Empezar examen</Button>
                   </div>
                 </div>
               )}
               <TestView policy={policy} started={started} level={test.level} estimate={test.estimate} finished={test.finished} current={test.current} history={test.history} answer={test.answer} onBegin={()=>setStarted(true)} onSave={saveAttemptFinished} onReset={restartTest} />
             </div>
           )}
-        </div>
+        </Card>
       </main>
     </div>
   )
@@ -210,15 +219,17 @@ function TestView({ policy, started, level, estimate, finished, current, history
       {!started ? (
         <div>
           <p className="text-gray-600">Responde a cada pregunta. El nivel se ajusta automáticamente.</p>
-          <button className="mt-6 px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700" onClick={onBegin}>Comenzar</button>
+          <div className="mt-6">
+            <Button variant="primary" onClick={onBegin}>Comenzar</Button>
+          </div>
         </div>
       ) : finished ? (
         <div>
           <h2 className="text-xl font-semibold">Completado</h2>
           <p className="mt-2">Nivel estimado: <strong>{estimate.toFixed(2)}</strong></p>
           <div className="mt-4 flex gap-2">
-            <button onClick={onSave} className="px-3 py-1.5 rounded-lg border hover:bg-blue-50">Guardar intento</button>
-            <button onClick={onReset} className="px-3 py-1.5 rounded-lg border hover:bg-gray-50">Reiniciar test</button>
+            <Button onClick={onSave} variant="outline" size="sm">Guardar intento</Button>
+            <Button onClick={onReset} variant="ghost" size="sm">Reiniciar test</Button>
           </div>
           <details className="mt-4">
             <summary className="cursor-pointer text-sm text-gray-600">Ver trazas</summary>
@@ -230,7 +241,7 @@ function TestView({ policy, started, level, estimate, finished, current, history
       ) : (
         <div>
           <div className="flex justify-end mb-2">
-            <button onClick={onReset} className="text-xs px-2 py-1 rounded border hover:bg-gray-50">Reiniciar</button>
+            <Button onClick={onReset} size="sm" variant="ghost" className="text-xs">Reiniciar</Button>
           </div>
           <div className="mb-2">
             <div className="flex justify-between text-xs text-gray-600">
@@ -244,11 +255,11 @@ function TestView({ policy, started, level, estimate, finished, current, history
           <div className="text-sm text-gray-500">Nivel actual: L{level}</div>
           <h2 className="text-lg font-semibold mt-2">{current.stem}</h2>
           <div className="mt-4 grid gap-2">
-            {current.options.map((opt:any) => (
-              <button key={opt.key} onClick={()=>answer(opt.key)} className="w-full text-left px-4 py-3 rounded-xl border hover:bg-blue-50">
-                <span className="font-mono mr-2">{opt.key}.</span> {opt.text}
-              </button>
-            ))}
+              {current.options.map((opt:any) => (
+                <Button key={opt.key} onClick={()=>answer(opt.key)} variant="outline" className="w-full text-left">
+                  <span className="font-mono mr-2">{opt.key}.</span> {opt.text}
+                </Button>
+              ))}
           </div>
         </div>
       )}
@@ -312,16 +323,16 @@ function TeacherDashboard({ onSeedAndStart, onStartWithBank } : any) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <button onClick={onSeedAndStart} className="px-4 py-2 rounded-xl bg-blue-600 text-white">Sembrar banco demo y empezar</button>
+        <div className="flex flex-wrap items-center gap-3">
+        <Button onClick={onSeedAndStart} variant="primary">Sembrar banco demo y empezar</Button>
         <div className="h-6 w-px bg-gray-200" />
         <label className="text-sm text-gray-600">Seleccionar banco:</label>
         <select value={selected} onChange={(e)=>setSelected(e.target.value)} className="border rounded-lg px-3 py-2">
           <option value="">— Selecciona —</option>
           {banks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
-        <button disabled={!selected} onClick={()=>onStartWithBank(selected)} className="px-3 py-1.5 rounded-lg border disabled:opacity-50 hover:bg-blue-50">Comenzar test con este banco</button>
-        <button disabled={!attempts.length} onClick={exportCSV} className="px-3 py-1.5 rounded-lg border disabled:opacity-50">Exportar CSV</button>
+        <Button disabled={!selected} onClick={()=>onStartWithBank(selected)} variant={selected? 'outline':'ghost'} size="sm">Comenzar test con este banco</Button>
+        <Button disabled={!attempts.length} onClick={exportCSV} variant={attempts.length? 'outline':'ghost'} size="sm">Exportar CSV</Button>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4">

@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { addDoc, collection, deleteDoc, doc, getDocs, query, updateDoc, where } from 'firebase/firestore'
 import { db } from '../lib/firebase'
+import { Input } from '../ui/Input'
+import { Textarea } from '../ui/Textarea'
+import { Select } from '../ui/Select'
+import { Button } from '../ui/Button'
 
 type Option = { key: string; text: string }
 
@@ -60,25 +64,25 @@ export function ItemManager({ bankId } : { bankId: string }) {
       <div className="rounded-xl border p-4">
         <h3 className="font-semibold">Añadir nueva pregunta</h3>
         <div className="mt-3 grid gap-3">
-          <textarea value={stem} onChange={e=>setStem(e.target.value)} className="w-full border rounded-lg px-3 py-2" rows={3} placeholder="Enunciado de la pregunta" />
+          <Textarea value={stem} onChange={e=>setStem(e.target.value)} rows={3} placeholder="Enunciado de la pregunta" />
           <div className="grid sm:grid-cols-2 gap-3">
             {options.map((o, idx) => (
               <div key={o.key} className="flex items-center gap-2">
                 <span className="font-mono text-sm w-6">{o.key}.</span>
-                <input value={o.text} onChange={e=>setOptions(prev=> prev.map((p,i)=> i===idx?{...p, text: e.target.value}:p))} className="flex-1 border rounded-lg px-3 py-2" placeholder={`Opción ${o.key}`} />
+                <Input value={o.text} onChange={e=>setOptions(prev=> prev.map((p,i)=> i===idx?{...p, text: (e.target as HTMLInputElement).value}:p))} placeholder={`Opción ${o.key}`} />
               </div>
             ))}
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <label className="text-sm text-gray-600">Correcta:</label>
-            <select value={correctKey} onChange={e=>setCorrectKey(e.target.value)} className="border rounded-lg px-3 py-2">
+            <Select value={correctKey} onChange={e=>setCorrectKey((e.target as HTMLSelectElement).value)}>
               {options.map(o => <option key={o.key} value={o.key}>{o.key}</option>)}
-            </select>
+            </Select>
             <label className="text-sm text-gray-600 ml-2">Nivel:</label>
-            <select value={level} onChange={e=>setLevel(Number(e.target.value))} className="border rounded-lg px-3 py-2">
+            <Select value={level} onChange={e=>setLevel(Number((e.target as HTMLSelectElement).value))}>
               {[1,2,3,4,5].map(n=> <option key={n} value={n}>L{n}</option>)}
-            </select>
-            <button disabled={!canCreate} onClick={createItem} className={"ml-auto px-4 py-2 rounded-xl border "+(canCreate?"bg-blue-600 text-white border-blue-600 hover:bg-blue-700":"opacity-50 cursor-not-allowed")}>Guardar pregunta</button>
+            </Select>
+            <Button disabled={!canCreate} onClick={createItem} className="ml-auto" variant={canCreate? 'primary':'ghost'}>Guardar pregunta</Button>
           </div>
         </div>
       </div>
@@ -118,27 +122,27 @@ function EditableItem({ item, onSave, onDelete } : { item:any; onSave:(it:any)=>
 
   return (
     <div className="border rounded-lg p-3">
-      <textarea value={stem} onChange={e=>setStem(e.target.value)} className="w-full border rounded-lg px-3 py-2" rows={2} />
+      <Textarea value={stem} onChange={e=>setStem(e.target.value)} rows={2} />
       <div className="mt-2 grid sm:grid-cols-2 gap-2">
         {options.map((o, idx) => (
           <div key={o.key} className="flex items-center gap-2">
             <span className="font-mono text-sm w-6">{o.key}.</span>
-            <input value={o.text} onChange={e=>setOptions(prev=> prev.map((p,i)=> i===idx?{...p, text: e.target.value}:p))} className="flex-1 border rounded-lg px-3 py-2" />
+            <Input value={o.text} onChange={e=>setOptions(prev=> prev.map((p,i)=> i===idx?{...p, text: (e.target as HTMLInputElement).value}:p))} />
           </div>
         ))}
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-3">
         <label className="text-sm text-gray-600">Correcta:</label>
-        <select value={correctKey} onChange={e=>setCorrectKey(e.target.value)} className="border rounded-lg px-3 py-2">
+        <Select value={correctKey} onChange={e=>setCorrectKey((e.target as HTMLSelectElement).value)}>
           {options.map(o => <option key={o.key} value={o.key}>{o.key}</option>)}
-        </select>
+        </Select>
         <label className="text-sm text-gray-600 ml-2">Nivel:</label>
-        <select value={level} onChange={e=>setLevel(Number(e.target.value))} className="border rounded-lg px-3 py-2">
+        <Select value={level} onChange={e=>setLevel(Number((e.target as HTMLSelectElement).value))}>
           {[1,2,3,4,5].map(n=> <option key={n} value={n}>L{n}</option>)}
-        </select>
+        </Select>
         <div className="ml-auto flex gap-2">
-          <button disabled={!changed} onClick={()=>onSave({ ...item, stem, options, correctKey, level })} className={"px-3 py-1.5 rounded-lg border "+(changed?"bg-blue-600 text-white border-blue-600 hover:bg-blue-700":"opacity-50 cursor-not-allowed")}>Guardar</button>
-          <button onClick={()=>onDelete(item.id)} className="px-3 py-1.5 rounded-lg border hover:bg-red-50 text-red-700 border-red-200">Eliminar</button>
+          <Button disabled={!changed} onClick={()=>onSave({ ...item, stem, options, correctKey, level })} variant={changed? 'primary':'ghost'} size="sm">Guardar</Button>
+          <Button onClick={()=>onDelete(item.id)} variant="danger" size="sm">Eliminar</Button>
         </div>
       </div>
     </div>

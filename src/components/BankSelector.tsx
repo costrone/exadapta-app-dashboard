@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../lib/firebase'
+import { Select } from '../ui/Select'
 
 export function BankSelector({ value, onChange, subject } : { value: string; onChange: (id:string)=>void; subject?: string }) {
   const [banks, setBanks] = useState<any[]>([])
@@ -14,10 +15,10 @@ export function BankSelector({ value, onChange, subject } : { value: string; onC
   return (
     <div className="flex items-center gap-2">
       <label className="text-sm text-gray-600">Banco:</label>
-      <select value={value} onChange={e=>onChange(e.target.value)} className="border rounded-lg px-3 py-2">
+      <Select value={value} onChange={e=>onChange(e.target.value)}>
         <option value="">— Selecciona un banco —</option>
         {filtered.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-      </select>
+      </Select>
     </div>
   )
 }

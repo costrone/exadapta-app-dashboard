@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { collection, deleteDoc, doc, getDocs, setDoc } from 'firebase/firestore'
 import { db } from '../lib/firebase'
+import { Input } from '../ui/Input'
+import { Select } from '../ui/Select'
+import { Button } from '../ui/Button'
 
 type Entry = { email: string; role: 'teacher'|'admin' }
 
@@ -45,12 +48,12 @@ export function AdminPanel() {
         <h2 className="font-semibold">Gestión de roles</h2>
         <p className="text-sm text-gray-600 mt-1">Añade emails con rol docente. Por seguridad, no se escribe nada sensible en el cliente.</p>
         <div className="mt-4 flex flex-wrap gap-3 items-center">
-          <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="profesor@centro.es" className="border rounded-lg px-3 py-2 min-w-[260px]" />
-          <select value={role} onChange={e=>setRole(e.target.value as any)} className="border rounded-lg px-3 py-2">
+          <Input value={email} onChange={e=>setEmail((e.target as HTMLInputElement).value)} placeholder="profesor@centro.es" className="min-w-[260px]" />
+          <Select value={role} onChange={e=>setRole((e.target as HTMLSelectElement).value as any)}>
             <option value="teacher">teacher</option>
             <option value="admin">admin</option>
-          </select>
-          <button disabled={!canAdd} onClick={addEntry} className={"px-4 py-2 rounded-xl border "+(canAdd?"bg-blue-600 text-white border-blue-600 hover:bg-blue-700":"opacity-50 cursor-not-allowed")}>Añadir</button>
+          </Select>
+          <Button disabled={!canAdd} onClick={addEntry} variant={canAdd? 'primary':'ghost'}>Añadir</Button>
         </div>
       </div>
 
@@ -76,7 +79,7 @@ export function AdminPanel() {
                   <td className="px-3 py-2 font-mono">{e.email}</td>
                   <td className="px-3 py-2">{e.role}</td>
                   <td className="px-3 py-2 text-right">
-                    <button onClick={()=>removeEntry(e)} className="px-3 py-1.5 rounded-lg border hover:bg-red-50 text-red-700 border-red-200">Quitar</button>
+                    <Button onClick={()=>removeEntry(e)} variant="danger" size="sm">Quitar</Button>
                   </td>
                 </tr>
               ))}

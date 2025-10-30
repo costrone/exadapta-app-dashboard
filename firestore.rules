@@ -63,7 +63,9 @@ service cloud.firestore {
 
     // Allowlist de roles (emails -> role). Solo admin puede gestionarla.
     match /roles/{email} {
-      allow read: if isAdmin();
+      // Cualquier usuario autenticado puede leer su propio rol; admin puede leer todo
+      allow read: if (isAuthed() && request.auth.token.email == email) || isAdmin();
+      // Solo admin puede crear/editar/eliminar
       allow create, update, delete: if isAdmin();
     }
   }

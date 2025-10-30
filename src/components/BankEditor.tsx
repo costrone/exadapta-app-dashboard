@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { addDoc, collection, doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../lib/firebase'
+import { Input } from '../ui/Input'
+import { Select } from '../ui/Select'
+import { Button } from '../ui/Button'
 
 type Policy = {
   minItems: number
@@ -55,42 +58,42 @@ export function BankEditor({ bankId, onCreated, onUpdated } : { bankId?: string;
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div>
           <label className="block text-sm text-gray-600 mb-1">Nombre</label>
-          <input value={name} onChange={e=>setName(e.target.value)} className="w-full border rounded-lg px-3 py-2" placeholder="Banco Física 1º Bach" />
+          <Input value={name} onChange={e=>setName((e.target as HTMLInputElement).value)} placeholder="Banco Física 1º Bach" />
         </div>
         <div>
           <label className="block text-sm text-gray-600 mb-1">Asignatura</label>
-          <input value={subject} onChange={e=>setSubject(e.target.value)} className="w-full border rounded-lg px-3 py-2" placeholder="physics" />
+          <Input value={subject} onChange={e=>setSubject((e.target as HTMLInputElement).value)} placeholder="physics" />
         </div>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-5">
         <div>
           <label className="block text-sm text-gray-600 mb-1">Mín. ítems</label>
-          <input type="number" value={policy.minItems} onChange={e=>setPolicy(p=>({...p, minItems: Number(e.target.value)}))} className="w-full border rounded-lg px-3 py-2" />
+          <Input type="number" value={policy.minItems} onChange={e=>setPolicy(p=>({...p, minItems: Number((e.target as HTMLInputElement).value)}))} />
         </div>
         <div>
           <label className="block text-sm text-gray-600 mb-1">Máx. ítems</label>
-          <input type="number" value={policy.maxItems} onChange={e=>setPolicy(p=>({...p, maxItems: Number(e.target.value)}))} className="w-full border rounded-lg px-3 py-2" />
+          <Input type="number" value={policy.maxItems} onChange={e=>setPolicy(p=>({...p, maxItems: Number((e.target as HTMLInputElement).value)}))} />
         </div>
         <div>
           <label className="block text-sm text-gray-600 mb-1">Delta estabilización</label>
-          <input type="number" step="0.01" value={policy.stabilizationDelta} onChange={e=>setPolicy(p=>({...p, stabilizationDelta: Number(e.target.value)}))} className="w-full border rounded-lg px-3 py-2" />
+          <Input type="number" step="0.01" value={policy.stabilizationDelta} onChange={e=>setPolicy(p=>({...p, stabilizationDelta: Number((e.target as HTMLInputElement).value)}))} />
         </div>
         <div>
           <label className="block text-sm text-gray-600 mb-1">Ventana estabilización</label>
-          <input type="number" value={policy.stabilizationWindow} onChange={e=>setPolicy(p=>({...p, stabilizationWindow: Number(e.target.value)}))} className="w-full border rounded-lg px-3 py-2" />
+          <Input type="number" value={policy.stabilizationWindow} onChange={e=>setPolicy(p=>({...p, stabilizationWindow: Number((e.target as HTMLInputElement).value)}))} />
         </div>
         <div>
           <label className="block text-sm text-gray-600 mb-1">Nivel inicial</label>
-          <select value={policy.startLevel} onChange={e=>setPolicy(p=>({...p, startLevel: Number(e.target.value) as 1|2|3|4|5}))} className="w-full border rounded-lg px-3 py-2">
+          <Select value={policy.startLevel} onChange={e=>setPolicy(p=>({...p, startLevel: Number((e.target as HTMLSelectElement).value) as 1|2|3|4|5}))}>
             {[1,2,3,4,5].map(n=> <option key={n} value={n}>L{n}</option>)}
-          </select>
+          </Select>
         </div>
       </div>
       <div className="mt-4 flex gap-2">
         {bankId ? (
-          <button disabled={!canSave} onClick={updateBank} className={"px-4 py-2 rounded-xl border "+(canSave?"bg-blue-600 text-white border-blue-600 hover:bg-blue-700":"opacity-50 cursor-not-allowed")}>Guardar cambios</button>
+          <Button disabled={!canSave} onClick={updateBank} variant={canSave? 'primary':'ghost'}>Guardar cambios</Button>
         ) : (
-          <button disabled={!canSave} onClick={createBank} className={"px-4 py-2 rounded-xl border "+(canSave?"bg-blue-600 text-white border-blue-600 hover:bg-blue-700":"opacity-50 cursor-not-allowed")}>Crear banco</button>
+          <Button disabled={!canSave} onClick={createBank} variant={canSave? 'primary':'ghost'}>Crear banco</Button>
         )}
       </div>
     </div>

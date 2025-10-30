@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../lib/firebase'
+import { Select } from '../ui/Select'
 
 export function SubjectSelector({ value, onChange } : { value: string; onChange: (subject:string)=>void }) {
   const [subjects, setSubjects] = useState<string[]>([])
@@ -20,10 +21,10 @@ export function SubjectSelector({ value, onChange } : { value: string; onChange:
   return (
     <div className="flex items-center gap-2">
       <label className="text-sm text-gray-600">Asignatura:</label>
-      <select value={value} onChange={e=>onChange(e.target.value)} className="border rounded-lg px-3 py-2">
+      <Select value={value} onChange={e=>onChange(e.target.value)}>
         <option value="">— Selecciona asignatura —</option>
         {subjects.map(s => <option key={s} value={s}>{s}</option>)}
-      </select>
+      </Select>
     </div>
   )
 }

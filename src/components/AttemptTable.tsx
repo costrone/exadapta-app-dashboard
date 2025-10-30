@@ -1,7 +1,9 @@
+import { TableContainer } from '../ui/Table'
+
 export function AttemptTable({ attempts } : { attempts: any[] }) {
   if (!attempts.length) return <p className="text-gray-600">No hay intentos aún.</p>
   return (
-    <div className="overflow-auto border rounded-xl">
+    <TableContainer>
       <table className="min-w-full text-sm">
         <thead className="bg-gray-50">
           <tr>
@@ -24,6 +26,6 @@ export function AttemptTable({ attempts } : { attempts: any[] }) {
           ))}
         </tbody>
       </table>
-    </div>
+    </TableContainer>
   )
 }

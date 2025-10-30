@@ -2,3 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 html, body, #root { height: 100%; }
+
+/* Paleta y variables del proyecto origen (resumidas) */
+:root {
+  --ucam-blue: #004379;
+  --ucam-gold: #EDAB00;
+  --ucam-gray-dark: #2D2D2D;
+  --ucam-gray-medium: #565656;
+  --ucam-gray-very-light: #EEEEEE;
+  --ucam-white: #FFFFFF;
+  --ucam-green: #007D57;
+  --ucam-red: #DC002E;
+  --ucam-blue-dark: #255F78;
+  --very-light-blue: #E3F2FD;
+
+  /* Mapeo base */
+  --primary-bg: var(--ucam-white);
+  --primary-text: var(--ucam-blue);
+  --secondary-bg: var(--ucam-gray-very-light);
+  --secondary-text: var(--ucam-gray-dark);
+  --border: #B9B9B9;
+  --shadow: rgba(0, 67, 121, 0.08);
+  --shadow-hover: rgba(0, 67, 121, 0.12);
+}
+
+[data-theme="dark"] {
+  --primary-bg: #0f1419;
+  --primary-text: #ffffff;
+  --secondary-bg: #1a1f2e;
+  --secondary-text: #e5e7eb;
+  --border: #2d3748;
+  --shadow: rgba(0,0,0,0.5);
+  --shadow-hover: rgba(0,0,0,0.7);
+}
+
+/* Tipografía y colores globales */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: var(--primary-text);
+  background: var(--secondary-bg);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
