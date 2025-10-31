@@ -11,11 +11,15 @@
       }
     ],
     "rewrites": [
+      { "source": "/api/generate", "function": "generate" },
       { "source": "**", "destination": "/index.html" }
     ]
   },
   "firestore": {
     "rules": "firestore.rules"
+  },
+  "functions": {
+    "source": "functions"
   }
 }
 

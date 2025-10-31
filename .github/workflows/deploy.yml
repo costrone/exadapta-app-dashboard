@@ -33,7 +33,13 @@ jobs:
       - run: npm ci
       - run: npm run build
 
-      - name: Deploy Hosting and Firestore rules
-        run: npx --yes firebase-tools deploy --only hosting,firestore:rules
+      - name: Set Functions secret
+        run: |
+          echo "$GEMINI_API_KEY" | npx --yes firebase-tools functions:secrets:set GEMINI_API_KEY --project exadapta --data-file -
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      - name: Deploy Hosting, Firestore rules and Functions
+        run: npx --yes firebase-tools deploy --only hosting,firestore:rules,functions --project exadapta
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}

@@ -17,49 +17,31 @@ export function AIGenerator({ onCreated } : { onCreated: (bankId:string)=>void }
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>('')
 
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined
-  const canUseAI = Boolean(apiKey)
-  const canGenerate = canUseAI && subject.trim().length > 0 && course.trim().length > 0 && numQuestions > 0 && !loading
+  // Con backend, ya no dependemos de la clave en cliente
+  const canUseAI = true
+  const canGenerate = subject.trim().length > 0 && course.trim().length > 0 && numQuestions > 0 && !loading
 
   async function generateWithAI(): Promise<GeneratedItem[]> {
     const prompt = `Eres un generador de ítems para docentes en la Región de Murcia (España). Genera ${numQuestions} preguntas tipo test en español sobre ${subject} para el curso/nivel "${course}", teniendo en cuenta el currículo oficial vigente de la Región de Murcia y las últimas leyes educativas de España y de la propia Región de Murcia. Ajusta la dificultad, vocabulario y profundidad al nivel del curso y asegúrate de cubrir resultados de aprendizaje y contenidos curriculares relevantes. Cada pregunta debe tener 4 opciones (A-D), indica la correcta en correctKey y asigna un nivel 1-5 equilibrado (1 más fácil, 5 más difícil). Devuelve SOLO JSON válido con esta forma exacta: {"items":[{ "stem":"...", "options":[{"key":"A","text":"..."},{"key":"B","text":"..."},{"key":"C","text":"..."},{"key":"D","text":"..."}], "correctKey":"A|B|C|D", "level":1-5 }...]}`
-    const candidates = [
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=',
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=',
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=',
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=',
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key='
-    ]
-    const errors: string[] = []
-    let data: any = null
-    for (const base of candidates) {
-      const url = base + apiKey
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }]}] })
-      })
-      if (res.ok) {
-        data = await res.json()
-        break
-      } else {
-        try {
-          const j = await res.json()
-          errors.push(`${res.status}${j?.error?.message?`: ${j.error.message}`:''}`)
-        } catch {
-          errors.push(String(res.status))
-        }
-      }
+    const res = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subject, course, numQuestions })
+    })
+    if (!res.ok) {
+      let msg = `API IA error ${res.status}`
+      try { const j = await res.json(); if (j?.error || j?.details) msg = msg+`: ${JSON.stringify(j)}` } catch {}
+      throw new Error(msg)
     }
-    if (!data) throw new Error(`API IA error: ${errors.join(' | ')}`)
+    const data = await res.json()
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
     let parsed: any
-    try {
-      parsed = JSON.parse(text)
-    } catch {
-      const match = text.match(/\{[\s\S]*\}/)
-      if (!match) throw new Error('No se pudo parsear la respuesta de IA')
-      parsed = JSON.parse(match[0])
+    // Cuando usamos backend, data ya es { items }
+    if (data?.items) {
+      parsed = data
+    } else {
+      try { parsed = JSON.parse(text) }
+      catch { const match = text.match(/\{[\s\S]*\}/); if (!match) throw new Error('No se pudo parsear la respuesta de IA'); parsed = JSON.parse(match[0]) }
     }
     const items = (parsed.items || []) as GeneratedItem[]
     if (!Array.isArray(items) || items.length === 0) throw new Error('La IA no devolvió ítems')
@@ -100,11 +82,7 @@ export function AIGenerator({ onCreated } : { onCreated: (bankId:string)=>void }
   return (
     <div className="rounded-xl border p-4 space-y-3">
       <h3 className="font-semibold">Generar banco con IA</h3>
-      {!canUseAI && (
-        <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
-          Define VITE_GEMINI_API_KEY en tu entorno para usar esta función.
-        </div>
-      )}
+      {/* Sin aviso: ahora el backend gestiona la API Key */}
       <div className="grid sm:grid-cols-4 gap-3">
         <div>
           <label className="block text-sm text-gray-600 mb-1">Asignatura/tema</label>
