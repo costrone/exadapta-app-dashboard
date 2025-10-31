@@ -1,7 +1,8 @@
-name: Deploy to Firebase Hosting
+name: Deploy to Firebase
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -14,24 +15,25 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+          cache: 'npm'
 
-      # (Opcional) crear .env para Vite con variables del repo
-      # - run: |
-      #     cat > .env << 'EOF'
-      #     VITE_FB_API_KEY=${{ vars.VITE_FB_API_KEY }}
-      #     VITE_FB_AUTH_DOMAIN=${{ vars.VITE_FB_AUTH_DOMAIN }}
-      #     VITE_FB_PROJECT_ID=${{ vars.VITE_FB_PROJECT_ID }}
-      #     VITE_FB_BUCKET=${{ vars.VITE_FB_BUCKET }}
-      #     VITE_FB_SENDER=${{ vars.VITE_FB_SENDER }}
-      #     VITE_FB_APP_ID=${{ vars.VITE_FB_APP_ID }}
-      #     EOF
+      # Crear .env para Vite a partir de las Variables del repositorio
+      - name: Create .env for Vite
+        run: |
+          cat > .env << 'EOF'
+          VITE_FB_API_KEY=${{ vars.VITE_FB_API_KEY }}
+          VITE_FB_AUTH_DOMAIN=${{ vars.VITE_FB_AUTH_DOMAIN }}
+          VITE_FB_PROJECT_ID=${{ vars.VITE_FB_PROJECT_ID }}
+          VITE_FB_BUCKET=${{ vars.VITE_FB_BUCKET }}
+          VITE_FB_SENDER=${{ vars.VITE_FB_SENDER }}
+          VITE_FB_APP_ID=${{ vars.VITE_FB_APP_ID }}
+          EOF
+          echo "Created .env with VITE_* variables"
 
       - run: npm ci
       - run: npm run build
 
-      - name: Deploy Hosting (and rules)
-        run: |
-          npx --yes firebase-tools deploy --only hosting,firestore:rules --project exadapta
+      - name: Deploy Hosting and Firestore rules
+        run: npx --yes firebase-tools deploy --only hosting,firestore:rules
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
