@@ -1,3 +1,6 @@
+Aquí tienes el `deploy.yml` completo usando la opción 1 (deploy con `--force`):
+
+```yaml
 name: Deploy to Firebase
 on:
   push:
@@ -49,12 +52,8 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
 
-      - name: Set Functions artifacts cleanup policy
-        run: npx --yes firebase-tools functions:artifacts:setpolicy --project exadapta --location europe-west1 --policy=auto --token "$FIREBASE_TOKEN"
+      - name: Deploy Hosting, Firestore rules and Functions (force)
+        run: npx --yes firebase-tools deploy --only hosting,firestore:rules,functions --project exadapta --token "$FIREBASE_TOKEN" --force
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-
-      - name: Deploy Hosting, Firestore rules and Functions
-        run: npx --yes firebase-tools deploy --only hosting,firestore:rules,functions --project exadapta --token "$FIREBASE_TOKEN"
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+```
