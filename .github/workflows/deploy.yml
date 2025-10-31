@@ -33,7 +33,7 @@ jobs:
       - run: npm run build
 
       - name: Install Functions deps
-        run: npm ci
+        run: npm install
         working-directory: functions
 
       - name: Build Functions
