@@ -6,3 +6,10 @@ dist/
 firebase-debug.log
 .firebase/
 .vscode/
+
+# Claves/secretos
+.ssh/
+id_ed25519
+*.key
+*.pem
+.env
