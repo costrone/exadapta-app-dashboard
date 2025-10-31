@@ -29,4 +29,4 @@ firebase deploy --only hosting
 
 Trigger CI: prueba de despliegue automática
 Trigger CI 2: actualizar variables VITE
-
+Trigger CI3: Actualizar API Firebase
