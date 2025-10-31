@@ -1,6 +1,3 @@
-Aquí tienes el `deploy.yml` completo usando la opción 1 (deploy con `--force`):
-
-```yaml
 name: Deploy to Firebase
 on:
   push:
@@ -32,11 +29,9 @@ jobs:
           VITE_GEMINI_API_KEY=${{ vars.VITE_GEMINI_API_KEY }}
           EOF
 
-      # Frontend
       - run: npm ci
       - run: npm run build
 
-      # Functions
       - name: Install Functions deps
         run: npm install
         working-directory: functions
@@ -56,4 +51,3 @@ jobs:
         run: npx --yes firebase-tools deploy --only hosting,firestore:rules,functions --project exadapta --token "$FIREBASE_TOKEN" --force
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-```
