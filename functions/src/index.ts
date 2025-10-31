@@ -1,17 +1,19 @@
 import { onRequest } from 'firebase-functions/v2/https'
+import { defineSecret } from 'firebase-functions/params'
 import * as logger from 'firebase-functions/logger'
 import fetch from 'node-fetch'
 import corsLib from 'cors'
 
 const cors = corsLib({ origin: true })
+const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY')
 
-export const generate = onRequest({ region: 'europe-west1' }, async (req, res): Promise<void> => {
+export const generate = onRequest({ region: 'europe-west1', secrets: [GEMINI_API_KEY] }, async (req, res): Promise<void> => {
   await new Promise<void>(resolve => cors(req as any, res as any, () => resolve()))
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' }); return
   }
   try {
-    const apiKey = process.env.GEMINI_API_KEY
+    const apiKey = GEMINI_API_KEY.value()
     if (!apiKey) {
       res.status(500).json({ error: 'Missing GEMINI_API_KEY' }); return
     }
