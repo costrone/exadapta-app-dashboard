@@ -28,4 +28,5 @@ firebase deploy --only hosting
 4) Exporta CSV desde el panel y revisa la distribución de niveles.
 
 Trigger CI: prueba de despliegue automática
+Trigger CI 2: actualizar variables VITE
 
