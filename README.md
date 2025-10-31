@@ -26,3 +26,5 @@ firebase deploy --only hosting
 2) En pestaña **Panel docente** → “Sembrar banco demo y empezar” o elige un banco y **Comenzar test**.  
 3) Completa el test y pulsa **Guardar intento** (en la vista del test al finalizar).  
 4) Exporta CSV desde el panel y revisa la distribución de niveles.
+
+Trigger CI: prueba de despliegue automática
