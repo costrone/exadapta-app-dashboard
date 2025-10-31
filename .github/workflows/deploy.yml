@@ -17,7 +17,6 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      # Crear .env para Vite a partir de las Variables del repositorio
       - name: Create .env for Vite
         run: |
           cat > .env << 'EOF'
@@ -27,6 +26,7 @@ jobs:
           VITE_FB_BUCKET=${{ vars.VITE_FB_BUCKET }}
           VITE_FB_SENDER=${{ vars.VITE_FB_SENDER }}
           VITE_FB_APP_ID=${{ vars.VITE_FB_APP_ID }}
+          VITE_GEMINI_API_KEY=${{ vars.VITE_GEMINI_API_KEY }}
           EOF
           echo "Created .env with VITE_* variables"
 
