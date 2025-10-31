@@ -29,9 +29,11 @@ jobs:
           VITE_GEMINI_API_KEY=${{ vars.VITE_GEMINI_API_KEY }}
           EOF
 
+      # Frontend
       - run: npm ci
       - run: npm run build
 
+      # Functions
       - name: Install Functions deps
         run: npm install
         working-directory: functions
@@ -45,6 +47,11 @@ jobs:
           echo "$GEMINI_API_KEY" | npx --yes firebase-tools functions:secrets:set GEMINI_API_KEY --project exadapta --data-file - --token "$FIREBASE_TOKEN"
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+
+      - name: Set Functions artifacts cleanup policy
+        run: npx --yes firebase-tools functions:artifacts:setpolicy --project exadapta --location europe-west1 --policy=auto --token "$FIREBASE_TOKEN"
+        env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
 
       - name: Deploy Hosting, Firestore rules and Functions
