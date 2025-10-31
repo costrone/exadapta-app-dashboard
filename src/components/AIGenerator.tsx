@@ -23,21 +23,35 @@ export function AIGenerator({ onCreated } : { onCreated: (bankId:string)=>void }
 
   async function generateWithAI(): Promise<GeneratedItem[]> {
     const prompt = `Eres un generador de ítems para docentes en la Región de Murcia (España). Genera ${numQuestions} preguntas tipo test en español sobre ${subject} para el curso/nivel "${course}", teniendo en cuenta el currículo oficial vigente de la Región de Murcia y las últimas leyes educativas de España y de la propia Región de Murcia. Ajusta la dificultad, vocabulario y profundidad al nivel del curso y asegúrate de cubrir resultados de aprendizaje y contenidos curriculares relevantes. Cada pregunta debe tener 4 opciones (A-D), indica la correcta en correctKey y asigna un nivel 1-5 equilibrado (1 más fácil, 5 más difícil). Devuelve SOLO JSON válido con esta forma exacta: {"items":[{ "stem":"...", "options":[{"key":"A","text":"..."},{"key":"B","text":"..."},{"key":"C","text":"..."},{"key":"D","text":"..."}], "correctKey":"A|B|C|D", "level":1-5 }...]}`
-    // Algunos proyectos sólo soportan v1beta o el alias -latest no está disponible
-    const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }]}]
+    const candidates = [
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key='
+    ]
+    const errors: string[] = []
+    let data: any = null
+    for (const base of candidates) {
+      const url = base + apiKey
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }]}] })
       })
-    })
-    if (!res.ok) {
-      let msg = `API IA error ${res.status}`
-      try { const j = await res.json(); if (j?.error?.message) msg = msg+`: ${j.error.message}` } catch {}
-      throw new Error(msg)
+      if (res.ok) {
+        data = await res.json()
+        break
+      } else {
+        try {
+          const j = await res.json()
+          errors.push(`${res.status}${j?.error?.message?`: ${j.error.message}`:''}`)
+        } catch {
+          errors.push(String(res.status))
+        }
+      }
     }
-    const data = await res.json()
+    if (!data) throw new Error(`API IA error: ${errors.join(' | ')}`)
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
     let parsed: any
     try {
