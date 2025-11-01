@@ -7,7 +7,7 @@ import corsLib from 'cors'
 const cors = corsLib({ origin: true })
 const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY')
 
-export const generate = onRequest({ region: 'europe-west1', secrets: [GEMINI_API_KEY], timeoutSeconds: 120 }, async (req, res): Promise<void> => {
+export const generate = onRequest({ region: 'europe-west1', secrets: [GEMINI_API_KEY], timeoutSeconds: 120, memory: '512MiB' }, async (req, res): Promise<void> => {
   await new Promise<void>(resolve => cors(req as any, res as any, () => resolve()))
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' }); return
@@ -36,6 +36,7 @@ export const generate = onRequest({ region: 'europe-west1', secrets: [GEMINI_API
     }
 
     // Descubre modelos disponibles en este proyecto/clave y elige uno compatible (con reintento)
+    const t0 = Date.now()
     let listRes = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`, { method: 'GET' })
     if (!listRes.ok) {
       listRes = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`, { method: 'GET' })
@@ -57,6 +58,7 @@ export const generate = onRequest({ region: 'europe-west1', secrets: [GEMINI_API
     const rawName = String(chosen.name || '')
     const modelId = rawName.startsWith('models/') ? rawName.slice('models/'.length) : rawName
     const endpointBase = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelId)}:generateContent?key=${apiKey}`
+    logger.info('Gemini model chosen', { model: modelId })
 
     const errors: string[] = []
     let data: any = null
@@ -84,6 +86,8 @@ export const generate = onRequest({ region: 'europe-west1', secrets: [GEMINI_API
       if (!match) { res.status(400).json({ error: 'Invalid JSON from model' }); return }
       parsed = JSON.parse(match[0])
     }
+    const t1 = Date.now()
+    logger.info('Gemini generate OK', { ms: t1 - t0, items: Array.isArray(parsed.items) ? parsed.items.length : 0 })
     res.json({ items: parsed.items || [] })
   } catch (e: any) {
     logger.error(e)
