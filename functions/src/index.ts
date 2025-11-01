@@ -39,7 +39,10 @@ export const generate = onRequest({ region: 'europe-west1', secrets: [GEMINI_API
     if (!chosen?.name) {
       res.status(400).json({ error: 'No compatible model found', details: models.map(m=>m?.name).filter(Boolean) }); return
     }
-    const endpointBase = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(chosen.name)}:generateContent?key=${apiKey}`
+    // Normaliza nombre: la API acepta "{model}" o "models/{model}"; evitamos duplicar "models/"
+    const rawName = String(chosen.name || '')
+    const modelId = rawName.startsWith('models/') ? rawName.slice('models/'.length) : rawName
+    const endpointBase = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelId)}:generateContent?key=${apiKey}`
 
     const errors: string[] = []
     let data: any = null
