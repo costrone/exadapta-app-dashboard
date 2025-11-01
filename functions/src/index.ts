@@ -24,23 +24,35 @@ export const generate = onRequest({ region: 'europe-west1', secrets: [GEMINI_API
     const prompt = promptOverride ||
       `Eres un generador de ítems para docentes en la Región de Murcia (España). Genera ${numQuestions} preguntas tipo test en español sobre ${subject} para el curso/nivel "${course}", teniendo en cuenta el currículo oficial vigente de la Región de Murcia y las últimas leyes educativas de España y de la propia Región de Murcia. Ajusta la dificultad, vocabulario y profundidad al nivel del curso y asegúrate de cubrir resultados de aprendizaje y contenidos curriculares relevantes. Cada pregunta debe tener 4 opciones (A-D), indica la correcta en correctKey y asigna un nivel 1-5 equilibrado (1 más fácil, 5 más difícil). Devuelve SOLO JSON válido con esta forma exacta: {"items":[{ "stem":"...", "options":[{"key":"A","text":"..."},{"key":"B","text":"..."},{"key":"C","text":"..."},{"key":"D","text":"..."}], "correctKey":"A|B|C|D", "level":1-5 }...]}`
 
-    const candidates = [
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=',
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key=',
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent?key='
-    ]
+    // Descubre modelos disponibles en este proyecto/clave y elige uno compatible
+    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`)
+    if (!listRes.ok) {
+      const txt = await listRes.text().catch(()=> '')
+      res.status(400).json({ error: 'ListModels failed', details: txt }); return
+    }
+    const listJson: any = await listRes.json()
+    const models: any[] = Array.isArray(listJson?.models) ? listJson.models : []
+    const compatible = models.filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+    // preferir flash, luego pro, si no el primero
+    const pick = (arr: any[], token: string) => arr.find(m => String(m.name || '').includes(token))
+    const chosen = pick(compatible, 'flash') || pick(compatible, 'pro') || compatible[0]
+    if (!chosen?.name) {
+      res.status(400).json({ error: 'No compatible model found', details: models.map(m=>m?.name).filter(Boolean) }); return
+    }
+    const endpointBase = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(chosen.name)}:generateContent?key=${apiKey}`
 
     const errors: string[] = []
     let data: any = null
-    for (const base of candidates) {
-      const url = base + apiKey
-      const r = await fetch(url, {
+    {
+      const r = await fetch(endpointBase, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }]}] })
       })
-      if (r.ok) { data = await r.json(); break }
-      try { const j: any = await r.json(); errors.push(`${r.status}${j && j.error && j.error.message ? `: ${j.error.message}` : ''}`) } catch { errors.push(String(r.status)) }
+      if (r.ok) { data = await r.json() }
+      else {
+        try { const j: any = await r.json(); errors.push(`${r.status}${j && j.error && j.error.message ? `: ${j.error.message}` : ''}`) } catch { errors.push(String(r.status)) }
+      }
     }
     if (!data) {
       logger.error('Gemini error', errors)
