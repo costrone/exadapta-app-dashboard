@@ -46,11 +46,11 @@ export function AdaptativeExamGenerator({ onGenerated }: { onGenerated?: (examCo
             resolve(text)
           } catch (importError) {
             // Si no está disponible pdf.js, usar el nombre del archivo
-            show('La extracción de texto del PDF requiere pdf.js. Por ahora se usará el nombre del archivo como referencia. El examen se generará basándose en los otros campos proporcionados.', 'warning')
+            show('La extracción de texto del PDF requiere pdf.js. Por ahora se usará el nombre del archivo como referencia. El examen se generará basándose en los otros campos proporcionados.', 'info')
             resolve(`[Archivo PDF cargado: ${file.name}. El profesor debe describir el contenido en el campo "Contenidos del examen" para una mejor adaptación.]`)
           }
         } catch (err) {
-          show('Error al procesar el PDF. Se usará el nombre del archivo como referencia.', 'warning')
+          show('Error al procesar el PDF. Se usará el nombre del archivo como referencia.', 'info')
           resolve(`[Archivo PDF: ${file.name}]`)
         }
       }
