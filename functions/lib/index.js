@@ -24,7 +24,7 @@ export const generate = onRequest({ region: 'europe-west1', secrets: [GEMINI_API
         }
         const prompt = promptOverride ||
             `Eres un generador de ítems para docentes en la Región de Murcia (España). Genera ${numQuestions} preguntas tipo test en español sobre ${subject} para el curso/nivel "${course}", teniendo en cuenta el currículo oficial vigente de la Región de Murcia y las últimas leyes educativas de España y de la propia Región de Murcia. Ajusta la dificultad, vocabulario y profundidad al nivel del curso y asegúrate de cubrir resultados de aprendizaje y contenidos curriculares relevantes. Cada pregunta debe tener 4 opciones (A-D), indica la correcta en correctKey y asigna un nivel 1-5 equilibrado (1 más fácil, 5 más difícil). Devuelve SOLO JSON válido con esta forma exacta: {"items":[{ "stem":"...", "options":[{"key":"A","text":"..."},{"key":"B","text":"..."},{"key":"C","text":"..."},{"key":"D","text":"..."}], "correctKey":"A|B|C|D", "level":1-5 }...]}`;
-        // Detectar si el prompt pide JSON o texto
+        // Detectar si el prompt pide JSON o texto (actualizado v2 - soporta exámenes adaptados)
         const expectsJSON = returnText === false || (promptOverride && /devuelve.*json|json.*válido|formato.*json/i.test(prompt));
         const expectsText = returnText === true || (promptOverride && !expectsJSON && /formato.*texto|texto.*estructurado/i.test(prompt));
         // Helper: fetch con timeout (aumentado para solicitudes grandes)

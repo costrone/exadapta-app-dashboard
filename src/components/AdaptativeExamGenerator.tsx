@@ -4,6 +4,7 @@ import { Input } from '../ui/Input'
 import { Textarea } from '../ui/Textarea'
 import { Select } from '../ui/Select'
 import { useToast } from '../ui/toast'
+import jsPDF from 'jspdf'
 
 type QuestionType = 'test' | 'desarrollo' | 'mixto'
 
@@ -177,13 +178,65 @@ ${tipoPreguntas === 'test' ? 'Devuelve SOLO JSON válido con esta forma exacta: 
 
   function downloadExam() {
     if (!generatedExam) return
-    const blob = new Blob([generatedExam], { type: 'text/plain;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `examen_adaptado_${materia}_${new Date().toISOString().split('T')[0]}.txt`
-    a.click()
-    URL.revokeObjectURL(url)
+    
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    })
+    
+    // Configurar fuente y tamaño
+    const pageWidth = pdf.internal.pageSize.getWidth()
+    const pageHeight = pdf.internal.pageSize.getHeight()
+    const margin = 20
+    const maxWidth = pageWidth - (margin * 2)
+    let yPosition = margin
+    
+    // Título del examen
+    pdf.setFontSize(16)
+    pdf.setFont('helvetica', 'bold')
+    const title = `Examen Adaptado - ${materia || 'Sin materia'}`
+    pdf.text(title, margin, yPosition)
+    yPosition += 10
+    
+    // Fecha
+    pdf.setFontSize(10)
+    pdf.setFont('helvetica', 'normal')
+    const fecha = new Date().toLocaleDateString('es-ES', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    })
+    pdf.text(`Fecha: ${fecha}`, margin, yPosition)
+    yPosition += 8
+    
+    // Línea separadora
+    pdf.setDrawColor(200, 200, 200)
+    pdf.line(margin, yPosition, pageWidth - margin, yPosition)
+    yPosition += 10
+    
+    // Contenido del examen
+    pdf.setFontSize(11)
+    pdf.setFont('helvetica', 'normal')
+    
+    // Dividir el texto en líneas que quepan en el ancho de la página
+    const lines = pdf.splitTextToSize(generatedExam, maxWidth)
+    
+    // Agregar líneas al PDF, manejando saltos de página
+    for (let i = 0; i < lines.length; i++) {
+      // Verificar si necesitamos una nueva página
+      if (yPosition > pageHeight - margin - 10) {
+        pdf.addPage()
+        yPosition = margin
+      }
+      
+      pdf.text(lines[i], margin, yPosition)
+      yPosition += 6 // Espaciado entre líneas
+    }
+    
+    // Guardar el PDF
+    const fileName = `examen_adaptado_${materia || 'examen'}_${new Date().toISOString().split('T')[0]}.pdf`
+    pdf.save(fileName)
   }
 
   return (
@@ -291,7 +344,7 @@ ${tipoPreguntas === 'test' ? 'Devuelve SOLO JSON válido con esta forma exacta: 
           <div className="flex justify-between items-center">
             <h3 className="font-semibold">Examen Generado</h3>
             <Button onClick={downloadExam} variant="outline" size="sm">
-              Descargar
+              Descargar PDF
             </Button>
           </div>
           <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-auto">
