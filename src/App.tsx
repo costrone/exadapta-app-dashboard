@@ -11,12 +11,15 @@ import { BankEditor } from './components/BankEditor'
 import { ItemManager } from './components/ItemManager'
 import { AdminPanel } from './components/AdminPanel'
 import { AIGenerator } from './components/AIGenerator'
+import { ModeSelector } from './components/ModeSelector'
+import { AdaptativeExamGenerator } from './components/AdaptativeExamGenerator'
 import { Button } from './ui/Button'
 import { Card } from './ui/Card'
 import { ThemeToggle } from './ui/ThemeToggle'
 import { useToast } from './ui/toast'
 
 type Role = 'student' | 'teacher' | 'admin'
+type ExamMode = 'adaptive' | 'adapted' | null
 
 const policy = { minItems: 8, maxItems: 18, stabilizationDelta: 0.25, stabilizationWindow: 3, startLevel: 3 as const }
 
@@ -90,6 +93,7 @@ export default function App() {
   const [user, setUser] = useState<any>(null)
   const [role, setRole] = useState<Role>('student')
   const [tab, setTab] = useState<'test'|'dashboard'|'admin'>('test')
+  const [examMode, setExamMode] = useState<ExamMode>(null)
 
   const [started, setStarted] = useState(false)
   const [subject, setSubject] = useState<string>('')
@@ -105,8 +109,16 @@ export default function App() {
       if (r) setRole(r)
     } else {
       setRole('student')
+      setExamMode(null) // Resetear modo al desloguearse
     }
   }), [])
+
+  // Resetear modo al cambiar de pestaña
+  useEffect(() => {
+    if (tab !== 'dashboard') {
+      setExamMode(null)
+    }
+  }, [tab])
 
   async function startWithBank(id:string) {
     // Reinicia el estado del test al cambiar de banco
@@ -168,7 +180,7 @@ export default function App() {
   return (
     <div className="min-h-screen" style={{ background: 'var(--secondary-bg)' }}>
       <header className="p-4 border-b bg-blue-600 text-white flex items-center justify-between">
-        <h1 className="font-semibold">ExAdapta — Examen Adaptativo</h1>
+        <h1 className="font-semibold">ExAdapta — Exámenes Adaptativos y Adaptados</h1>
         <div className="flex items-center gap-3">
           <nav className="hidden sm:flex gap-2 mr-4">
             <Button onClick={()=>setTab('test')} variant={tab==='test'?'ghost':'outline'} size="sm" className="text-white border-white/50 hover:bg-white/10">Estudiante</Button>
@@ -194,7 +206,37 @@ export default function App() {
           {!user ? (
             <p className="text-gray-600">Inicia sesión para continuar.</p>
           ) : tab === 'dashboard' && (role === 'teacher' || role === 'admin') ? (
-            <TeacherDashboard onSeedAndStart={seedAndStart} onStartWithBank={startWithBank} />
+            // Mostrar selector de modo si no se ha seleccionado uno
+            examMode === null ? (
+              <ModeSelector onSelect={(mode) => {
+                setExamMode(mode)
+                if (mode === 'adaptive') {
+                  // Si selecciona adaptativo, mostrar el dashboard existente
+                } else {
+                  // Si selecciona adaptado, mostrar el generador
+                }
+              }} />
+            ) : examMode === 'adaptive' ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold">Exámenes Adaptativos</h2>
+                  <Button onClick={() => setExamMode(null)} variant="outline" size="sm">
+                    Cambiar modo
+                  </Button>
+                </div>
+                <TeacherDashboard onSeedAndStart={seedAndStart} onStartWithBank={startWithBank} />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold">Exámenes Adaptados</h2>
+                  <Button onClick={() => setExamMode(null)} variant="outline" size="sm">
+                    Cambiar modo
+                  </Button>
+                </div>
+                <AdaptativeExamGenerator />
+              </div>
+            )
           ) : tab === 'admin' && role === 'admin' ? (
             <AdminPanel />
           ) : (
