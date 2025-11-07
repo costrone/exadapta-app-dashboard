@@ -24,8 +24,8 @@ export const generate = onRequest({ region: 'europe-west1', secrets: [GEMINI_API
     const prompt = promptOverride ||
       `Eres un generador de ítems para docentes en la Región de Murcia (España). Genera ${numQuestions} preguntas tipo test en español sobre ${subject} para el curso/nivel "${course}", teniendo en cuenta el currículo oficial vigente de la Región de Murcia y las últimas leyes educativas de España y de la propia Región de Murcia. Ajusta la dificultad, vocabulario y profundidad al nivel del curso y asegúrate de cubrir resultados de aprendizaje y contenidos curriculares relevantes. Cada pregunta debe tener 4 opciones (A-D), indica la correcta en correctKey y asigna un nivel 1-5 equilibrado (1 más fácil, 5 más difícil). Devuelve SOLO JSON válido con esta forma exacta: {"items":[{ "stem":"...", "options":[{"key":"A","text":"..."},{"key":"B","text":"..."},{"key":"C","text":"..."},{"key":"D","text":"..."}], "correctKey":"A|B|C|D", "level":1-5 }...]}`
 
-    // Helper: fetch con timeout
-    const fetchWithTimeout = async (url: string, init: any, ms = 30000) => {
+    // Helper: fetch con timeout (aumentado para solicitudes grandes)
+    const fetchWithTimeout = async (url: string, init: any, ms = 90000) => {
       const ac = new AbortController()
       const t = setTimeout(() => ac.abort(), ms)
       try {
@@ -90,8 +90,16 @@ export const generate = onRequest({ region: 'europe-west1', secrets: [GEMINI_API
     logger.info('Gemini generate OK', { ms: t1 - t0, items: Array.isArray(parsed.items) ? parsed.items.length : 0 })
     res.json({ items: parsed.items || [] })
   } catch (e: any) {
-    logger.error(e)
-    res.status(502).json({ error: 'Upstream error' })
+    logger.error('Error in generate function', { error: e?.message || String(e), stack: e?.stack })
+    const errorMessage = e?.message || String(e) || 'Unknown error'
+    // Si es un error de timeout o abort, indicarlo específicamente
+    if (errorMessage.includes('abort') || errorMessage.includes('timeout') || e?.name === 'AbortError') {
+      res.status(504).json({ error: 'Request timeout', details: 'La solicitud tardó demasiado. Intenta con menos preguntas.' })
+    } else if (errorMessage.includes('fetch') || errorMessage.includes('network')) {
+      res.status(503).json({ error: 'Network error', details: 'Error de conexión con el servicio de IA. Intenta de nuevo.' })
+    } else {
+      res.status(502).json({ error: 'Upstream error', details: errorMessage })
+    }
   }
 })
 

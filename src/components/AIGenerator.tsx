@@ -29,8 +29,27 @@ export function AIGenerator({ onCreated } : { onCreated: (bankId:string)=>void }
       body: JSON.stringify({ subject, course, numQuestions })
     })
     if (!res.ok) {
-      let msg = `API IA error ${res.status}`
-      try { const j = await res.json(); if (j?.error || j?.details) msg = msg+`: ${JSON.stringify(j)}` } catch {}
+      let msg = `Error ${res.status}`
+      try { 
+        const j = await res.json()
+        if (j?.details) {
+          msg = j.details
+        } else if (j?.error) {
+          msg = j.error + (j.details ? `: ${j.details}` : '')
+        } else {
+          msg = `Error ${res.status}: ${JSON.stringify(j)}`
+        }
+      } catch {
+        if (res.status === 502) {
+          msg = 'Error de conexión con el servicio de IA. Verifica que la función esté desplegada y la API key configurada.'
+        } else if (res.status === 504) {
+          msg = 'La solicitud tardó demasiado. Intenta con menos preguntas o vuelve a intentarlo.'
+        } else if (res.status === 503) {
+          msg = 'Error de red. Intenta de nuevo en unos momentos.'
+        } else {
+          msg = `Error ${res.status}`
+        }
+      }
       throw new Error(msg)
     }
     const data = await res.json()
