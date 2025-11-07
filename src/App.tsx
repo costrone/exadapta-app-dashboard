@@ -13,6 +13,7 @@ import { AdminPanel } from './components/AdminPanel'
 import { AIGenerator } from './components/AIGenerator'
 import { ModeSelector } from './components/ModeSelector'
 import { AdaptativeExamGenerator } from './components/AdaptativeExamGenerator'
+import { LoginScreen } from './components/LoginScreen'
 import { Button } from './ui/Button'
 import { Card } from './ui/Card'
 import { ThemeToggle } from './ui/ThemeToggle'
@@ -202,10 +203,11 @@ export default function App() {
       </header>
 
       <main className="p-6 grid place-items-center">
-        <Card className="w-full max-w-5xl">
-          {!user ? (
-            <p className="text-gray-600">Inicia sesión para continuar.</p>
-          ) : tab === 'dashboard' && (role === 'teacher' || role === 'admin') ? (
+        {!user ? (
+          <LoginScreen />
+        ) : (
+          <Card className="w-full max-w-5xl">
+            {tab === 'dashboard' && (role === 'teacher' || role === 'admin') ? (
             // Mostrar selector de modo si no se ha seleccionado uno
             examMode === null ? (
               <ModeSelector onSelect={(mode) => {
@@ -255,7 +257,8 @@ export default function App() {
               <TestView policy={policy} started={started} level={test.level} estimate={test.estimate} finished={test.finished} current={test.current} history={test.history} answer={test.answer} onBegin={()=>setStarted(true)} onSave={saveAttemptFinished} onReset={restartTest} />
             </div>
           )}
-        </Card>
+          </Card>
+        )}
       </main>
     </div>
   )
