@@ -118,7 +118,8 @@ ${tipoPreguntas === 'test' ? 'Devuelve SOLO JSON válido con esta forma exacta: 
           subject: materia,
           course: 'ESO',
           numQuestions: numPreguntas,
-          promptOverride: prompt
+          promptOverride: prompt,
+          returnText: tipoPreguntas !== 'test' // Si no es test, devolver texto
         })
       })
 
@@ -152,9 +153,15 @@ ${tipoPreguntas === 'test' ? 'Devuelve SOLO JSON válido con esta forma exacta: 
           const options = item.options.map((opt: any) => `  ${opt.key}. ${opt.text}`).join('\n')
           return `${idx + 1}. ${item.stem}\n${options}\nRespuesta correcta: ${item.correctKey}\n`
         }).join('\n')
+      } else if (data?.text) {
+        // Para otros tipos, usar el texto directamente del campo text
+        examText = data.text
+      } else if (data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+        // Fallback: intentar obtener texto de candidates
+        examText = data.candidates[0].content.parts[0].text
       } else {
-        // Para otros tipos, usar el texto directamente
-        examText = data?.candidates?.[0]?.content?.parts?.[0]?.text || JSON.stringify(data, null, 2)
+        // Último recurso: mostrar datos en formato legible
+        examText = JSON.stringify(data, null, 2)
       }
       
       setGeneratedExam(examText)

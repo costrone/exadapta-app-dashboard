@@ -17,12 +17,16 @@ export const generate = onRequest({ region: 'europe-west1', secrets: [GEMINI_API
     if (!apiKey) {
       res.status(500).json({ error: 'Missing GEMINI_API_KEY' }); return
     }
-    const { subject, course, numQuestions, promptOverride } = req.body || {}
+    const { subject, course, numQuestions, promptOverride, returnText } = req.body || {}
     if (!subject || !course || !numQuestions) {
       res.status(400).json({ error: 'Missing subject/course/numQuestions' }); return
     }
     const prompt = promptOverride ||
       `Eres un generador de ítems para docentes en la Región de Murcia (España). Genera ${numQuestions} preguntas tipo test en español sobre ${subject} para el curso/nivel "${course}", teniendo en cuenta el currículo oficial vigente de la Región de Murcia y las últimas leyes educativas de España y de la propia Región de Murcia. Ajusta la dificultad, vocabulario y profundidad al nivel del curso y asegúrate de cubrir resultados de aprendizaje y contenidos curriculares relevantes. Cada pregunta debe tener 4 opciones (A-D), indica la correcta en correctKey y asigna un nivel 1-5 equilibrado (1 más fácil, 5 más difícil). Devuelve SOLO JSON válido con esta forma exacta: {"items":[{ "stem":"...", "options":[{"key":"A","text":"..."},{"key":"B","text":"..."},{"key":"C","text":"..."},{"key":"D","text":"..."}], "correctKey":"A|B|C|D", "level":1-5 }...]}`
+    
+    // Detectar si el prompt pide JSON o texto
+    const expectsJSON = returnText === false || (promptOverride && /devuelve.*json|json.*válido|formato.*json/i.test(prompt))
+    const expectsText = returnText === true || (promptOverride && !expectsJSON && /formato.*texto|texto.*estructurado/i.test(prompt))
 
     // Helper: fetch con timeout (aumentado para solicitudes grandes)
     const fetchWithTimeout = async (url: string, init: any, ms = 90000) => {
@@ -79,11 +83,28 @@ export const generate = onRequest({ region: 'europe-west1', secrets: [GEMINI_API
       res.status(400).json({ error: 'Gemini error', details: errors }); return
     }
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
+    
+    // Si se espera texto, devolverlo directamente
+    if (expectsText) {
+      const t1 = Date.now()
+      logger.info('Gemini generate OK (text)', { ms: t1 - t0, textLength: text.length })
+      res.json({ text, candidates: data?.candidates })
+      return
+    }
+    
+    // Si se espera JSON, intentar parsearlo
     let parsed: any
-    try { parsed = JSON.parse(text) }
-    catch {
+    try { 
+      parsed = JSON.parse(text) 
+    } catch {
+      // Intentar extraer JSON del texto si está embebido
       const match = text.match(/\{[\s\S]*\}/)
-      if (!match) { res.status(400).json({ error: 'Invalid JSON from model' }); return }
+      if (!match) { 
+        // Si no hay JSON y no se espera texto, es un error
+        logger.error('No JSON found in response', { text: text.substring(0, 200) })
+        res.status(400).json({ error: 'Invalid JSON from model', details: 'La respuesta no contiene JSON válido' }); 
+        return 
+      }
       parsed = JSON.parse(match[0])
     }
     const t1 = Date.now()
