@@ -24,6 +24,17 @@ export function AdaptativeExamGenerator({ onGenerated }: { onGenerated?: (examCo
   const [docxFile, setDocxFile] = useState<File | null>(null)
   const [docxText, setDocxText] = useState('')
   const [editorText, setEditorText] = useState('')
+  const [docFontFamily, setDocFontFamily] = useState<
+    | 'Arial'
+    | 'Calibri'
+    | 'Century Gothic'
+    | 'Open Sans'
+    | 'Tahoma'
+    | 'Times New Roman'
+    | 'Verdana'
+    | 'OpenDyslexic'
+  >('Arial')
+  const [docFontSize, setDocFontSize] = useState<number>(12)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>('')
   const [generatedExam, setGeneratedExam] = useState<string>('')
@@ -305,6 +316,13 @@ ${tipoPreguntas === 'test' ? 'Devuelve SOLO JSON válido con esta forma exacta: 
         day: 'numeric' 
       })
       
+      const baseSize = Math.max(8, docFontSize) * 2
+      const titleSize = baseSize + 16
+      const subtitleSize = baseSize + 10
+      const metaSize = Math.max(baseSize - 4, 16)
+      const questionSize = baseSize + 4
+      const headingSize = baseSize + 6
+
       const children: Paragraph[] = []
       
       // Título principal
@@ -314,8 +332,9 @@ ${tipoPreguntas === 'test' ? 'Devuelve SOLO JSON válido con esta forma exacta: 
             new TextRun({
               text: `EXAMEN ADAPTADO`,
               bold: true,
-              size: 36,
+              size: titleSize,
               color: '004379',
+              font: docFontFamily,
             }),
           ],
           heading: HeadingLevel.TITLE,
@@ -331,8 +350,9 @@ ${tipoPreguntas === 'test' ? 'Devuelve SOLO JSON válido con esta forma exacta: 
             new TextRun({
               text: materia || 'Sin materia',
               bold: true,
-              size: 28,
+              size: subtitleSize,
               color: '004379',
+              font: docFontFamily,
             }),
           ],
           alignment: AlignmentType.CENTER,
@@ -346,9 +366,10 @@ ${tipoPreguntas === 'test' ? 'Devuelve SOLO JSON válido con esta forma exacta: 
           children: [
             new TextRun({
               text: `Fecha: ${fecha}`,
-              size: 20,
+              size: metaSize,
               color: '666666',
               italics: true,
+              font: docFontFamily,
             }),
           ],
           alignment: AlignmentType.CENTER,
@@ -375,13 +396,15 @@ ${tipoPreguntas === 'test' ? 'Devuelve SOLO JSON válido con esta forma exacta: 
                 new TextRun({
                   text: `${idx + 1}. `,
                   bold: true,
-                  size: 24,
+                  size: questionSize,
                   color: '004379',
+                  font: docFontFamily,
                 }),
                 new TextRun({
                   text: questionText,
                   bold: true,
-                  size: 24,
+                  size: questionSize,
+                  font: docFontFamily,
                 }),
               ],
               spacing: { before: 240, after: 160 },
@@ -402,12 +425,14 @@ ${tipoPreguntas === 'test' ? 'Devuelve SOLO JSON válido con esta forma exacta: 
                     new TextRun({
                       text: `${letter}. `,
                       bold: true,
-                      size: 22,
+                      size: baseSize,
                       color: '333333',
+                      font: docFontFamily,
                     }),
                     new TextRun({
                       text: text,
-                      size: 22,
+                      size: baseSize,
+                      font: docFontFamily,
                     }),
                   ],
                   spacing: { after: 120 },
@@ -420,7 +445,8 @@ ${tipoPreguntas === 'test' ? 'Devuelve SOLO JSON válido con esta forma exacta: 
                   children: [
                     new TextRun({
                       text: trimmedOption,
-                      size: 22,
+                      size: baseSize,
+                      font: docFontFamily,
                     }),
                   ],
                   spacing: { after: 120 },
@@ -477,8 +503,9 @@ ${tipoPreguntas === 'test' ? 'Devuelve SOLO JSON válido con esta forma exacta: 
                   new TextRun({
                     text: trimmedPara,
                     bold: true,
-                    size: 26,
+                  size: headingSize,
                     color: '004379',
+                  font: docFontFamily,
                   }),
                 ],
                 heading: HeadingLevel.HEADING_2,
@@ -491,7 +518,8 @@ ${tipoPreguntas === 'test' ? 'Devuelve SOLO JSON válido con esta forma exacta: 
                 children: [
                   new TextRun({
                     text: trimmedPara,
-                    size: 22,
+                  size: baseSize,
+                  font: docFontFamily,
                   }),
                 ],
                 spacing: { after: 150 },
@@ -632,6 +660,42 @@ ${tipoPreguntas === 'test' ? 'Devuelve SOLO JSON válido con esta forma exacta: 
             rows={3}
             className="w-full"
           />
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Fuente del documento</label>
+            <Select
+              value={docFontFamily}
+              onChange={e => setDocFontFamily(e.target.value as typeof docFontFamily)}
+              className="w-full"
+            >
+              <option value="Arial">Arial</option>
+              <option value="Calibri">Calibri</option>
+              <option value="Century Gothic">Century Gothic</option>
+              <option value="Open Sans">Open Sans</option>
+              <option value="Tahoma">Tahoma</option>
+              <option value="Times New Roman">Times New Roman</option>
+              <option value="Verdana">Verdana</option>
+              <option value="OpenDyslexic">OpenDyslexic</option>
+            </Select>
+          </div>
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Tamaño base de letra</label>
+            <Select
+              value={String(docFontSize)}
+              onChange={e => setDocFontSize(Number(e.target.value))}
+              className="w-full"
+            >
+              <option value="10">10 pt</option>
+              <option value="11">11 pt</option>
+              <option value="12">12 pt</option>
+              <option value="13">13 pt</option>
+              <option value="14">14 pt</option>
+              <option value="15">15 pt</option>
+              <option value="16">16 pt</option>
+            </Select>
+          </div>
         </div>
 
         <div>
