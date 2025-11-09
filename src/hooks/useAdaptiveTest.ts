@@ -23,19 +23,25 @@ export function useAdaptiveTest(allItems: Item[], policy: Policy) {
   const [finished, setFinished] = useState(false)
   const estimateRef = useRef<number>(policy.startLevel)
 
-  const remaining = useMemo(() => allItems.filter(i => !history.some(h => h.itemId===i.id)), [allItems, history])
+  const answeredIds = useMemo(() => history.map(h => h.itemId), [history])
 
-  const pickNext = (lvl:number) => {
-    const pool = remaining.filter(i => i.level === lvl)
+  const remaining = useMemo(
+    () => allItems.filter(i => !answeredIds.includes(i.id)),
+    [allItems, answeredIds]
+  )
+
+  const selectItem = (items: Item[], lvl:number) => {
+    if (items.length === 0) return null
+    const pool = items.filter(i => i.level === lvl)
     if (pool.length === 0) {
-      const byDist = [...remaining].sort((a,b)=> Math.abs(a.level-lvl)-Math.abs(b.level-lvl))
+      const byDist = [...items].sort((a,b)=> Math.abs(a.level-lvl)-Math.abs(b.level-lvl))
       return byDist[0] ?? null
     }
     return pool[Math.floor(Math.random()*pool.length)]
   }
 
   const start = () => {
-    const nxt = pickNext(level)
+    const nxt = selectItem(remaining, level)
     setCurrent(nxt)
   }
 
@@ -45,17 +51,19 @@ export function useAdaptiveTest(allItems: Item[], policy: Policy) {
     const newLevel = correct ? Math.min(level+1, 5) : Math.max(level-1, 1)
 
     const alpha = 0.6
-    estimateRef.current = alpha*current.level + (1-alpha)*estimateRef.current
+    estimateRef.current = alpha*level + (1-alpha)*estimateRef.current
 
     const rec = { itemId: current.id, levelShown: level, answerKey, correct, levelAfter: newLevel }
-    setHistory(h => [...h, rec])
+    const newHistory = [...history, rec]
+    setHistory(newHistory)
+
     setLevel(newLevel)
 
-    const n = history.length + 1
+    const n = newHistory.length
     const window =  policy.stabilizationWindow
     let stabilized = false
     if (n >= Math.max(policy.minItems, window)) {
-      const recent = [...history, rec].slice(-window).map(r => r.levelAfter)
+      const recent = newHistory.slice(-window).map(r => r.levelAfter)
       const delta = Math.max(...recent) - Math.min(...recent)
       stabilized = delta <= policy.stabilizationDelta
     }
@@ -65,7 +73,14 @@ export function useAdaptiveTest(allItems: Item[], policy: Policy) {
       return
     }
 
-    const nxt = pickNext(newLevel)
+    const alreadyUsed = new Set(newHistory.map(h => h.itemId))
+    const remainingAfterAnswer = allItems.filter(i => !alreadyUsed.has(i.id))
+    const nxt = selectItem(remainingAfterAnswer, newLevel)
+    if (!nxt) {
+      setFinished(true)
+      setCurrent(null)
+      return
+    }
     setCurrent(nxt)
   }
 
