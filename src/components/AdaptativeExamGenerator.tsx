@@ -16,6 +16,7 @@ export function AdaptativeExamGenerator({ onGenerated }: { onGenerated?: (examCo
   const { show } = useToast()
   const [materia, setMateria] = useState('')
   const [contenidos, setContenidos] = useState('')
+  const [contenidosFileInfo, setContenidosFileInfo] = useState<{ name: string; type: 'docx' | 'pdf' } | null>(null)
   const [numPreguntas, setNumPreguntas] = useState(10)
   const [tipoPreguntas, setTipoPreguntas] = useState<QuestionType>('test')
   const [necesidades, setNecesidades] = useState('')
@@ -29,7 +30,7 @@ export function AdaptativeExamGenerator({ onGenerated }: { onGenerated?: (examCo
 
   const canGenerate = materia.trim().length > 0 && contenidos.trim().length > 0 && numPreguntas > 0 && !loading
 
-  async function extractTextFromDOCX(file: File): Promise<string> {
+  async function extractTextFromDOCX(file: File, context: 'exam' | 'content' = 'exam'): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = async (e) => {
@@ -39,8 +40,9 @@ export function AdaptativeExamGenerator({ onGenerated }: { onGenerated?: (examCo
           const text = result.value
           
           if (!text || text.trim().length === 0) {
-            show('El archivo DOCX no contiene texto legible. Asegúrate de que el documento tenga contenido.', 'info')
-            resolve(`[Archivo DOCX cargado: ${file.name}. El contenido no pudo ser extraído completamente. Por favor, describe el contenido en el campo "Contenidos del examen" para una mejor adaptación.]`)
+            const originLabel = context === 'exam' ? 'del examen original' : 'de los contenidos'
+            show(`El archivo DOCX ${originLabel} no contiene texto legible. Asegúrate de que el documento tenga contenido.`, 'info')
+            resolve(`[Archivo DOCX cargado: ${file.name}. No se pudo extraer texto automáticamente. Por favor, escribe un resumen manual para completar la información.]`)
             return
           }
           
@@ -54,6 +56,43 @@ export function AdaptativeExamGenerator({ onGenerated }: { onGenerated?: (examCo
         show('Error al leer el archivo DOCX', 'error')
         reject(new Error('Error al leer el archivo'))
       }
+      reader.readAsArrayBuffer(file)
+    })
+  }
+
+  async function extractTextFromPDF(file: File, context: 'exam' | 'content' = 'exam'): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        try {
+          const pdfModule: any = await import('pdfjs-dist')
+          const pdfjs = pdfModule?.default ?? pdfModule
+          if (pdfjs?.GlobalWorkerOptions) {
+            const version = pdfjs.version || '5.4.394'
+            pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.js`
+          }
+          const pdf = await pdfjs.getDocument({ data: e.target?.result as ArrayBuffer }).promise
+          let text = ''
+
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i)
+            const textContent = await page.getTextContent()
+            text += textContent.items.map((item: any) => item.str || '').join(' ') + '\n'
+          }
+
+          if (!text || text.trim().length === 0) {
+            const originLabel = context === 'exam' ? 'del examen original' : 'de los contenidos'
+            show(`No se pudo extraer texto legible del PDF ${originLabel}.`, 'info')
+            resolve(`[Archivo PDF cargado: ${file.name}. No se pudo extraer texto automáticamente. Describe el contenido manualmente para mejorar la adaptación.]`)
+            return
+          }
+
+          resolve(text)
+        } catch (err: any) {
+          reject(new Error(err?.message || 'Error al procesar el PDF'))
+        }
+      }
+      reader.onerror = () => reject(new Error('Error al leer el archivo PDF'))
       reader.readAsArrayBuffer(file)
     })
   }
@@ -78,15 +117,58 @@ export function AdaptativeExamGenerator({ onGenerated }: { onGenerated?: (examCo
     setDocxFile(file)
     setLoading(true)
     try {
-      const text = await extractTextFromDOCX(file)
+      const text = await extractTextFromDOCX(file, 'exam')
       setDocxText(text)
-      show('DOCX cargado correctamente. Texto extraído: ' + text.substring(0, 100) + '...', 'success')
+      show('DOCX del examen original cargado correctamente.', 'success')
     } catch (err: any) {
       show('Error al procesar el DOCX: ' + (err?.message || 'Error desconocido'), 'error')
       setDocxFile(null)
     } finally {
       setLoading(false)
     }
+  }
+
+  async function handleContenidosFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const nameLower = file.name.toLowerCase()
+    const isDocx = nameLower.endsWith('.docx') || nameLower.endsWith('.doc')
+    const isPdf = nameLower.endsWith('.pdf') || file.type === 'application/pdf'
+
+    if (!isDocx && !isPdf) {
+      show('Formato no soportado. Carga un archivo DOCX o PDF.', 'error')
+      e.target.value = ''
+      return
+    }
+
+    setLoading(true)
+    try {
+      let extracted = ''
+      if (isDocx) {
+        extracted = await extractTextFromDOCX(file, 'content')
+        setContenidosFileInfo({ name: file.name, type: 'docx' })
+        show('DOCX de contenidos cargado correctamente.', 'success')
+      } else {
+        extracted = await extractTextFromPDF(file, 'content')
+        setContenidosFileInfo({ name: file.name, type: 'pdf' })
+        show('PDF de contenidos cargado correctamente.', 'success')
+      }
+
+      if (extracted && extracted.trim().length > 0) {
+        setContenidos(extracted.trim())
+      }
+    } catch (err: any) {
+      show('Error al procesar el archivo: ' + (err?.message || 'Error desconocido'), 'error')
+      setContenidosFileInfo(null)
+    } finally {
+      setLoading(false)
+      e.target.value = ''
+    }
+  }
+
+  function clearContenidosFile() {
+    setContenidosFileInfo(null)
   }
 
   // Función para limpiar formato markdown del texto del editor
@@ -483,7 +565,30 @@ ${tipoPreguntas === 'test' ? 'Devuelve SOLO JSON válido con esta forma exacta: 
         </div>
 
         <div>
-          <label className="block text-sm text-gray-600 mb-1">Contenidos del examen *</label>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+            <label className="block text-sm text-gray-600">Contenidos del examen *</label>
+            <div className="flex items-center gap-2 text-xs">
+              <label className="inline-flex items-center gap-1 rounded-md border border-dashed border-blue-300 px-3 py-1 text-blue-600 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/40">
+                Importar DOCX/PDF
+                <input
+                  type="file"
+                  accept=".doc,.docx,.pdf"
+                  className="hidden"
+                  onChange={handleContenidosFileUpload}
+                  disabled={loading}
+                />
+              </label>
+              {contenidosFileInfo && (
+                <button
+                  type="button"
+                  onClick={clearContenidosFile}
+                  className="rounded-md border px-2 py-1 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                >
+                  Quitar archivo
+                </button>
+              )}
+            </div>
+          </div>
           <Textarea 
             value={contenidos} 
             onChange={e => setContenidos(e.target.value)} 
@@ -491,6 +596,18 @@ ${tipoPreguntas === 'test' ? 'Devuelve SOLO JSON válido con esta forma exacta: 
             rows={3}
             className="w-full"
           />
+          {contenidosFileInfo && (
+            <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center justify-between">
+                <strong className="text-xs text-blue-700 dark:text-blue-300">
+                  Archivo importado: {contenidosFileInfo.name} ({contenidosFileInfo.type.toUpperCase()})
+                </strong>
+              </div>
+              <div className="mt-2 text-xs text-gray-700 dark:text-gray-300 max-h-32 overflow-auto bg-white dark:bg-gray-800 p-2 rounded border">
+                <pre className="whitespace-pre-wrap font-mono">{contenidos.substring(0, 600)}{contenidos.length > 600 ? '...' : ''}</pre>
+              </div>
+            </div>
+          )}
         </div>
 
         <div>
