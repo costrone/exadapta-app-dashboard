@@ -49,6 +49,56 @@ service cloud.firestore {
       allow read, write: if isTeacher();
     }
 
+    match /generatedExams/{examId} {
+      allow read: if isTeacher();
+      allow create: if isTeacher()
+                    && request.resource.data.userId == uid()
+                    && request.resource.data.keys().hasOnly([
+                      "userId",
+                      "title",
+                      "subject",
+                      "summary",
+                      "contents",
+                      "tipoPreguntas",
+                      "numPreguntas",
+                      "necesidades",
+                      "examText",
+                      "fontFamily",
+                      "fontSize",
+                      "sourceMode",
+                      "docxText",
+                      "editorText",
+                      "docxFileName",
+                      "contenidosFileInfo",
+                      "createdAt",
+                      "updatedAt"
+                    ]);
+      allow update: if isTeacher()
+                    && (resource.data.userId == uid() || isAdmin())
+                    && request.resource.data.userId == resource.data.userId
+                    && request.resource.data.keys().hasOnly([
+                      "userId",
+                      "title",
+                      "subject",
+                      "summary",
+                      "contents",
+                      "tipoPreguntas",
+                      "numPreguntas",
+                      "necesidades",
+                      "examText",
+                      "fontFamily",
+                      "fontSize",
+                      "sourceMode",
+                      "docxText",
+                      "editorText",
+                      "docxFileName",
+                      "contenidosFileInfo",
+                      "createdAt",
+                      "updatedAt"
+                    ]);
+      allow delete: if isTeacher() && (resource.data.userId == uid() || isAdmin());
+    }
+
     match /attempts/{attemptId} {
       allow create: if isStudent()
                     && request.resource.data.keys().hasOnly(["userId","bankId","startAt","status","history","thetaEstimate","levelEstimate"])

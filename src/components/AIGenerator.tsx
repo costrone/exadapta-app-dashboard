@@ -21,12 +21,14 @@ export function AIGenerator({ onCreated } : { onCreated: (bankId:string)=>void }
   const canUseAI = true
   const canGenerate = subject.trim().length > 0 && course.trim().length > 0 && numQuestions > 0 && !loading
 
-  async function generateWithAI(): Promise<GeneratedItem[]> {
-    const prompt = `Eres un generador de ítems para docentes en la Región de Murcia (España). Genera ${numQuestions} preguntas tipo test en español sobre ${subject} para el curso/nivel "${course}", teniendo en cuenta el currículo oficial vigente de la Región de Murcia y las últimas leyes educativas de España y de la propia Región de Murcia. Ajusta la dificultad, vocabulario y profundidad al nivel del curso y asegúrate de cubrir resultados de aprendizaje y contenidos curriculares relevantes. Cada pregunta debe tener 4 opciones (A-D), indica la correcta en correctKey y asigna un nivel 1-5 equilibrado (1 más fácil, 5 más difícil). Devuelve SOLO JSON válido con esta forma exacta: {"items":[{ "stem":"...", "options":[{"key":"A","text":"..."},{"key":"B","text":"..."},{"key":"C","text":"..."},{"key":"D","text":"..."}], "correctKey":"A|B|C|D", "level":1-5 }...]}`
+  const MAX_BATCH = 20
+
+  async function generateBatch(batchSize: number, batchIndex: number, totalBatches: number): Promise<GeneratedItem[]> {
+    const batchPrompt = `Eres un generador de ítems para docentes en la Región de Murcia (España). Estás creando el lote ${batchIndex + 1} de ${totalBatches}. Genera ${batchSize} preguntas tipo test en español sobre ${subject} para el curso/nivel "${course}", teniendo en cuenta el currículo oficial vigente de la Región de Murcia y las últimas leyes educativas de España y de la propia Región de Murcia. Cada pregunta debe tener 4 opciones (A-D), indica la correcta en correctKey y asigna un nivel 1-5 equilibrado (1 más fácil, 5 más difícil). Evita repetir preguntas de lotes anteriores. Devuelve SOLO JSON válido con esta forma exacta: {"items":[{ "stem":"...", "options":[{"key":"A","text":"..."},{"key":"B","text":"..."},{"key":"C","text":"..."},{"key":"D","text":"..."}], "correctKey":"A|B|C|D", "level":1-5 }...]}`
     const res = await fetch('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subject, course, numQuestions })
+      body: JSON.stringify({ subject, course, numQuestions: batchSize, promptOverride: batchPrompt })
     })
     if (!res.ok) {
       let msg = `Error ${res.status}`
@@ -41,7 +43,7 @@ export function AIGenerator({ onCreated } : { onCreated: (bankId:string)=>void }
         }
       } catch {
         if (res.status === 502) {
-          msg = 'Error de conexión con el servicio de IA. Verifica que la función esté desplegada y la API key configurada.'
+          msg = 'El servicio de IA devolvió un 502 (timeout). Intenta con menos preguntas por lote o vuelve a intentar en unos instantes.'
         } else if (res.status === 504) {
           msg = 'La solicitud tardó demasiado. Intenta con menos preguntas o vuelve a intentarlo.'
         } else if (res.status === 503) {
@@ -55,7 +57,6 @@ export function AIGenerator({ onCreated } : { onCreated: (bankId:string)=>void }
     const data = await res.json()
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
     let parsed: any
-    // Cuando usamos backend, data ya es { items }
     if (data?.items) {
       parsed = data
     } else {
@@ -63,8 +64,20 @@ export function AIGenerator({ onCreated } : { onCreated: (bankId:string)=>void }
       catch { const match = text.match(/\{[\s\S]*\}/); if (!match) throw new Error('No se pudo parsear la respuesta de IA'); parsed = JSON.parse(match[0]) }
     }
     const items = (parsed.items || []) as GeneratedItem[]
-    if (!Array.isArray(items) || items.length === 0) throw new Error('La IA no devolvió ítems')
+    if (!Array.isArray(items) || items.length === 0) throw new Error('La IA no devolvió ítems en uno de los lotes')
     return items
+  }
+
+  async function generateWithAI(): Promise<GeneratedItem[]> {
+    const batches = Math.ceil(numQuestions / MAX_BATCH)
+    const results: GeneratedItem[] = []
+    for (let batchIndex = 0; batchIndex < batches; batchIndex++) {
+      const remaining = numQuestions - results.length
+      const batchSize = Math.min(MAX_BATCH, remaining)
+      const items = await generateBatch(batchSize, batchIndex, batches)
+      results.push(...items)
+    }
+    return results.slice(0, numQuestions)
   }
 
   async function handleGenerate() {

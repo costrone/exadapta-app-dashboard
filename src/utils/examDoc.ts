@@ -10,6 +10,7 @@ import {
   Table,
   TableRow,
   TableCell,
+  TabStopType,
 } from 'docx'
 
 type QuestionType = 'test' | 'desarrollo' | 'mixto'
@@ -61,83 +62,92 @@ export async function createExamDoc({
   ])
 
   if (logoAmBytes || logoSvpBytes) {
-    const logoRuns: (ImageRun | TextRun)[] = []
+    const cells: TableCell[] = []
     if (logoAmBytes) {
-      logoRuns.push(
-        new ImageRun({
-          data: logoAmBytes,
-          transformation: { width: 80, height: 80 },
-        } as any)
+      cells.push(
+        new TableCell({
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [
+                new ImageRun({
+                  data: logoAmBytes,
+                  transformation: { width: 80, height: 80 },
+                } as any),
+              ],
+            }),
+          ],
+          width: { size: logoSvpBytes ? 50 : 100, type: WidthType.PERCENTAGE },
+        })
       )
     }
-    if (logoAmBytes && logoSvpBytes) {
-      logoRuns.push(new TextRun({ text: '   ' }))
-    }
     if (logoSvpBytes) {
-      logoRuns.push(
-        new ImageRun({
-          data: logoSvpBytes,
-          transformation: { width: 80, height: 80 },
-        } as any)
+      cells.push(
+        new TableCell({
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [
+                new ImageRun({
+                  data: logoSvpBytes,
+                  transformation: { width: 80, height: 80 },
+                } as any),
+              ],
+            }),
+          ],
+          width: { size: logoAmBytes ? 50 : 100, type: WidthType.PERCENTAGE },
+        })
       )
     }
 
     children.push(
+      new Table({
+        width: {
+          size: 100,
+          type: WidthType.PERCENTAGE,
+        },
+        rows: [
+          new TableRow({
+            children: cells,
+          }),
+        ],
+      })
+    )
+    children.push(
       new Paragraph({
-        alignment: AlignmentType.CENTER,
+        text: '',
         spacing: { after: 120 },
-        children: logoRuns,
       })
     )
   }
 
   children.push(
-    new Table({
-      width: {
-        size: 100,
-        type: WidthType.PERCENTAGE,
-      },
-      rows: [
-        new TableRow({
-          children: [
-            new TableCell({
-              children: [
-                new Paragraph({
-                  children: [
-                    new TextRun({
-                      text: 'NOMBRE:',
-                      bold: true,
-                      font: fontFamily,
-                      size: metaSize,
-                    }),
-                    new TextRun({
-                      text: ' ______________________________',
-                      font: fontFamily,
-                      size: metaSize,
-                    }),
-                  ],
-                }),
-              ],
-              width: { size: 50, type: WidthType.PERCENTAGE },
-            }),
-            new TableCell({
-              children: [
-                new Paragraph({
-                  alignment: AlignmentType.RIGHT,
-                  children: [
-                    new TextRun({
-                      text: subject || '',
-                      font: fontFamily,
-                      size: metaSize,
-                    }),
-                  ],
-                }),
-              ],
-              width: { size: 50, type: WidthType.PERCENTAGE },
-            }),
-          ],
+    new Paragraph({
+      tabStops: [{ type: TabStopType.RIGHT, position: 9000 }],
+      children: [
+        new TextRun({
+          text: 'NOMBRE:',
+          bold: true,
+          font: fontFamily,
+          size: metaSize,
+        }),
+        new TextRun({
+          text: ' ______________________________',
+          font: fontFamily,
+          size: metaSize,
+        }),
+        new TextRun({
+          text: '\t',
+          font: fontFamily,
+          size: metaSize,
+        }),
+        new TextRun({
+          text: subject || '',
+          font: fontFamily,
+          size: metaSize,
         }),
       ],
+      spacing: { after: 200 },
     })
   )
 
