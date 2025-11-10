@@ -1,28 +1,47 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { Textarea } from '../ui/Textarea'
 import { Select } from '../ui/Select'
 import { useToast } from '../ui/toast'
 import mammoth from 'mammoth'
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, WidthType } from 'docx'
 import { saveAs } from 'file-saver'
 import { RichTextEditor } from './RichTextEditor'
+import { collection, addDoc, updateDoc, doc as firestoreDoc, serverTimestamp } from 'firebase/firestore'
+import { db } from '../lib/firebase'
+import { createExamDoc } from '../utils/examDoc'
+import { GeneratedExamRecord, StoredFileInfo } from '../types/generatedExam'
 
 type QuestionType = 'test' | 'desarrollo' | 'mixto'
 type ExamInputMode = 'docx' | 'editor'
 
-export function AdaptativeExamGenerator({ onGenerated }: { onGenerated?: (examContent: string) => void }) {
+type AdaptativeExamGeneratorProps = {
+  userId?: string | null
+  editingEntry?: GeneratedExamRecord | null
+  onHistorySaved?: () => void
+  onEditCleared?: () => void
+  onGenerated?: (examContent: string) => void
+}
+
+export function AdaptativeExamGenerator({
+  userId,
+  editingEntry,
+  onHistorySaved,
+  onEditCleared,
+  onGenerated,
+}: AdaptativeExamGeneratorProps) {
   const { show } = useToast()
+  const [titulo, setTitulo] = useState('')
   const [materia, setMateria] = useState('')
   const [contenidos, setContenidos] = useState('')
-  const [contenidosFileInfo, setContenidosFileInfo] = useState<{ name: string; type: 'docx' | 'pdf' } | null>(null)
+  const [contenidosFileInfo, setContenidosFileInfo] = useState<StoredFileInfo | null>(null)
   const [numPreguntas, setNumPreguntas] = useState(10)
   const [tipoPreguntas, setTipoPreguntas] = useState<QuestionType>('test')
   const [necesidades, setNecesidades] = useState('')
   const [examInputMode, setExamInputMode] = useState<ExamInputMode>('docx')
   const [docxFile, setDocxFile] = useState<File | null>(null)
   const [docxText, setDocxText] = useState('')
+  const [docxSourceName, setDocxSourceName] = useState<string | null>(null)
   const [editorText, setEditorText] = useState('')
   const [docFontFamily, setDocFontFamily] = useState<
     | 'Arial'
@@ -38,8 +57,46 @@ export function AdaptativeExamGenerator({ onGenerated }: { onGenerated?: (examCo
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>('')
   const [generatedExam, setGeneratedExam] = useState<string>('')
+  const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null)
+  const [currentCreatedAt, setCurrentCreatedAt] = useState<Date | null>(null)
 
-  const canGenerate = materia.trim().length > 0 && contenidos.trim().length > 0 && numPreguntas > 0 && !loading
+  useEffect(() => {
+    if (editingEntry) {
+      setTitulo(editingEntry.title || '')
+      setMateria(editingEntry.subject || '')
+      setContenidos(editingEntry.contents || '')
+      setTipoPreguntas(editingEntry.tipoPreguntas || 'test')
+      setNumPreguntas(editingEntry.numPreguntas || 10)
+      setNecesidades(editingEntry.necesidades || '')
+      setDocFontFamily(
+        (editingEntry.fontFamily as typeof docFontFamily) || 'Arial'
+      )
+      setDocFontSize(editingEntry.fontSize || 12)
+      setGeneratedExam(editingEntry.examText || '')
+      setExamInputMode(editingEntry.sourceMode || 'docx')
+      setDocxText(editingEntry.docxText || '')
+      setEditorText(editingEntry.editorText || '')
+      setContenidosFileInfo(editingEntry.contenidosFileInfo || null)
+      setDocxSourceName(editingEntry.docxFileName || null)
+      setDocxFile(null)
+      setActiveHistoryId(editingEntry.id)
+      setCurrentCreatedAt(
+        editingEntry.createdAt?.toDate?.() || new Date()
+      )
+    } else {
+      setActiveHistoryId(null)
+      setCurrentCreatedAt(null)
+      setDocxSourceName(null)
+      setDocxFile(null)
+    }
+  }, [editingEntry])
+
+  const canGenerate =
+    titulo.trim().length > 0 &&
+    materia.trim().length > 0 &&
+    contenidos.trim().length > 0 &&
+    numPreguntas > 0 &&
+    !loading
 
   async function extractTextFromDOCX(file: File, context: 'exam' | 'content' = 'exam'): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -130,6 +187,7 @@ export function AdaptativeExamGenerator({ onGenerated }: { onGenerated?: (examCo
     try {
       const text = await extractTextFromDOCX(file, 'exam')
       setDocxText(text)
+      setDocxSourceName(file.name)
       show('DOCX del examen original cargado correctamente.', 'success')
     } catch (err: any) {
       show('Error al procesar el DOCX: ' + (err?.message || 'Error desconocido'), 'error')
@@ -182,6 +240,60 @@ export function AdaptativeExamGenerator({ onGenerated }: { onGenerated?: (examCo
     setContenidosFileInfo(null)
   }
 
+  function handleCancelEdit() {
+    setActiveHistoryId(null)
+    setCurrentCreatedAt(null)
+    setDocxSourceName(null)
+    onEditCleared?.()
+  }
+
+  function summarize(text: string, fallback: string): string {
+    const clean = text.replace(/\s+/g, ' ').trim()
+    if (clean.length === 0) return fallback
+    return clean.length > 160 ? `${clean.slice(0, 157)}…` : clean
+  }
+
+  async function upsertHistory(examText: string) {
+    if (!userId) return
+    const summarySource = contenidos.trim() || examText
+    const summary = summarize(summarySource, 'Sin descripción')
+    const baseTitle =
+      titulo.trim() || (materia ? `${materia} — ${summary}` : summary)
+    const resolvedTitle = summarize(baseTitle, 'Examen adaptado')
+    const now = new Date()
+    const payload = {
+      userId,
+      title: resolvedTitle,
+      subject: materia,
+      summary,
+      contents: contenidos,
+      tipoPreguntas,
+      numPreguntas,
+      necesidades,
+      examText,
+      fontFamily: docFontFamily,
+      fontSize: docFontSize,
+      sourceMode: examInputMode,
+      docxText: docxText || '',
+      editorText: editorText || '',
+      docxFileName: docxSourceName || null,
+      contenidosFileInfo: contenidosFileInfo || null,
+      updatedAt: serverTimestamp(),
+    }
+
+    if (activeHistoryId) {
+      await updateDoc(firestoreDoc(db, 'generatedExams', activeHistoryId), payload)
+    } else {
+      const docRef = await addDoc(collection(db, 'generatedExams'), {
+        ...payload,
+        createdAt: serverTimestamp(),
+      })
+      setActiveHistoryId(docRef.id)
+      setCurrentCreatedAt(now)
+    }
+    onHistorySaved?.()
+  }
+
   // Función para limpiar formato markdown del texto del editor
   function cleanMarkdown(text: string): string {
     return text
@@ -190,6 +302,18 @@ export function AdaptativeExamGenerator({ onGenerated }: { onGenerated?: (examCo
       .replace(/__(.*?)__/g, '$1') // Underline
       .replace(/<div[^>]*>(.*?)<\/div>/g, '$1') // HTML divs
       .trim()
+  }
+
+  async function loadImageBytes(path: string): Promise<Uint8Array | null> {
+    try {
+      const res = await fetch(path)
+      if (!res.ok) return null
+      const blob = await res.blob()
+      const buffer = await blob.arrayBuffer()
+      return new Uint8Array(buffer)
+    } catch {
+      return null
+    }
   }
 
   async function generateExam() {
@@ -294,7 +418,17 @@ ${tipoPreguntas === 'test' ? 'Devuelve SOLO JSON válido con esta forma exacta: 
       }
       
       setGeneratedExam(examText)
+      setCurrentCreatedAt((prev) => prev ?? new Date())
       onGenerated?.(examText || data)
+      try {
+        await upsertHistory(examText)
+      } catch (historyError) {
+        console.error('Error guardando examen en el historial:', historyError)
+        show(
+          'El examen se generó correctamente, pero no se pudo almacenar en el historial.',
+          'error'
+        )
+      }
       show('Examen generado correctamente', 'success')
     } catch (e: any) {
       setError(e?.message || 'Error generando examen')
@@ -305,252 +439,25 @@ ${tipoPreguntas === 'test' ? 'Devuelve SOLO JSON válido con esta forma exacta: 
   }
 
   async function downloadExam() {
-    if (!generatedExam) return
-    
+    if (!generatedExam) {
+      show('Genera el examen antes de descargarlo.', 'info')
+      return
+    }
+
     try {
       setLoading(true)
-      
-      const fecha = new Date().toLocaleDateString('es-ES', { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
+      const blob = await createExamDoc({
+        examText: generatedExam,
+        subject: materia,
+        fontFamily: docFontFamily,
+        fontSize: docFontSize,
+        tipoPreguntas,
+        createdAt: currentCreatedAt ?? new Date(),
       })
-      
-      const baseSize = Math.max(8, docFontSize) * 2
-      const titleSize = baseSize + 16
-      const subtitleSize = baseSize + 10
-      const metaSize = Math.max(baseSize - 4, 16)
-      const questionSize = baseSize + 4
-      const headingSize = baseSize + 6
-
-      const children: Paragraph[] = []
-      
-      // Título principal
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: `EXAMEN ADAPTADO`,
-              bold: true,
-              size: titleSize,
-              color: '004379',
-              font: docFontFamily,
-            }),
-          ],
-          heading: HeadingLevel.TITLE,
-          alignment: AlignmentType.CENTER,
-          spacing: { after: 200 },
-        })
-      )
-      
-      // Materia
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: materia || 'Sin materia',
-              bold: true,
-              size: subtitleSize,
-              color: '004379',
-              font: docFontFamily,
-            }),
-          ],
-          alignment: AlignmentType.CENTER,
-          spacing: { after: 300 },
-        })
-      )
-      
-      // Fecha
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: `Fecha: ${fecha}`,
-              size: metaSize,
-              color: '666666',
-              italics: true,
-              font: docFontFamily,
-            }),
-          ],
-          alignment: AlignmentType.CENTER,
-          spacing: { after: 400 },
-        })
-      )
-      
-      // Contenido del examen
-      if (tipoPreguntas === 'test' && generatedExam.includes('Respuesta correcta:')) {
-        // Formatear preguntas tipo test
-        const questions = generatedExam.split(/\n(?=\d+\.)/).filter(q => q.trim())
-        
-        questions.forEach((question, idx) => {
-          const lines = question.split('\n').filter(l => l.trim())
-          if (lines.length === 0) return
-          
-          // Número y pregunta
-          const questionLine = lines[0]
-          const questionText = questionLine.replace(/^\d+\.\s*/, '')
-          
-          children.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: `${idx + 1}. `,
-                  bold: true,
-                  size: questionSize,
-                  color: '004379',
-                  font: docFontFamily,
-                }),
-                new TextRun({
-                  text: questionText,
-                  bold: true,
-                  size: questionSize,
-                  font: docFontFamily,
-                }),
-              ],
-              spacing: { before: 240, after: 160 },
-            })
-          )
-          
-          // Opciones
-          const options = lines.slice(1).filter(l => !l.includes('Respuesta correcta:'))
-          options.forEach(option => {
-            const trimmedOption = option.trim()
-            // Extraer la letra de la opción (A, B, C, D) y el texto
-            const match = trimmedOption.match(/^([A-D])[\.\)]\s*(.+)$/)
-            if (match) {
-              const [, letter, text] = match
-              children.push(
-                new Paragraph({
-                  children: [
-                    new TextRun({
-                      text: `${letter}. `,
-                      bold: true,
-                      size: baseSize,
-                      color: '333333',
-                      font: docFontFamily,
-                    }),
-                    new TextRun({
-                      text: text,
-                      size: baseSize,
-                      font: docFontFamily,
-                    }),
-                  ],
-                  spacing: { after: 120 },
-                  indent: { left: 720 }, // 0.5 pulgadas
-                })
-              )
-            } else {
-              children.push(
-                new Paragraph({
-                  children: [
-                    new TextRun({
-                      text: trimmedOption,
-                      size: baseSize,
-                      font: docFontFamily,
-                    }),
-                  ],
-                  spacing: { after: 120 },
-                  indent: { left: 720 },
-                })
-              )
-            }
-          })
-          
-          // Respuesta correcta (solo para el profesor, no mostrar en examen para alumnos)
-          // Comentado para no incluir respuestas en el examen
-          /*
-          const answerLine = lines.find(l => l.includes('Respuesta correcta:'))
-          if (answerLine) {
-            children.push(
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: answerLine.replace('Respuesta correcta:', 'Respuesta correcta:').trim(),
-                    bold: true,
-                    color: '007D57',
-                    size: 20,
-                  }),
-                ],
-                spacing: { before: 100, after: 300 },
-              })
-            )
-          }
-          */
-          
-          // Espaciado después de cada pregunta
-          children.push(
-            new Paragraph({
-              text: '',
-              spacing: { after: 200 },
-            })
-          )
-        })
-      } else {
-        // Formatear texto de desarrollo o mixto
-        const paragraphs = generatedExam.split('\n').filter(p => p.trim())
-        
-        paragraphs.forEach((para, idx) => {
-          const trimmedPara = para.trim()
-          if (!trimmedPara) return
-          
-          // Detectar títulos (líneas que terminan sin punto y son cortas)
-          const isTitle = trimmedPara.length < 80 && !trimmedPara.includes('.') && idx < paragraphs.length - 1
-          
-          if (isTitle) {
-            children.push(
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: trimmedPara,
-                    bold: true,
-                  size: headingSize,
-                    color: '004379',
-                  font: docFontFamily,
-                  }),
-                ],
-                heading: HeadingLevel.HEADING_2,
-                spacing: { before: 300, after: 200 },
-              })
-            )
-          } else {
-            children.push(
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: trimmedPara,
-                  size: baseSize,
-                  font: docFontFamily,
-                  }),
-                ],
-                spacing: { after: 150 },
-              })
-            )
-          }
-        })
-      }
-      
-      // Crear el documento
-      const doc = new Document({
-        sections: [{
-          properties: {
-            page: {
-              margin: {
-                top: 1440,    // 1 pulgada (en twips)
-                right: 1440,
-                bottom: 1440,
-                left: 1440,
-              },
-            },
-          },
-          children: children,
-        }],
-      })
-      
-      // Generar y descargar el DOCX
-      const blob = await Packer.toBlob(doc)
-      const fileName = `examen_adaptado_${materia.replace(/\s+/g, '_') || 'examen'}_${new Date().toISOString().split('T')[0]}.docx`
+      const fileName = `examen_adaptado_${(materia || 'examen')
+        .replace(/\s+/g, '_')
+        .toLowerCase()}_${new Date().toISOString().split('T')[0]}.docx`
       saveAs(blob, fileName)
-      
       show('Examen descargado en formato DOCX', 'success')
     } catch (err: any) {
       show('Error al generar el documento DOCX: ' + (err?.message || 'Error desconocido'), 'error')
@@ -567,6 +474,30 @@ ${tipoPreguntas === 'test' ? 'Devuelve SOLO JSON válido con esta forma exacta: 
         <p className="text-sm text-gray-600">
           Completa los siguientes campos para generar un examen adaptado a las necesidades de tu alumno.
         </p>
+
+        {activeHistoryId && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50/70 px-3 py-2 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
+            <span>
+              Estás editando un examen guardado
+              {currentCreatedAt
+                ? ` (${currentCreatedAt.toLocaleDateString('es-ES')})`
+                : ''}.
+            </span>
+            <Button variant="ghost" size="sm" onClick={handleCancelEdit}>
+              Cancelar edición
+            </Button>
+          </div>
+        )}
+
+        <div>
+          <label className="block text-sm text-gray-600 mb-1">Título del examen *</label>
+          <Input
+            value={titulo}
+            onChange={(e) => setTitulo(e.target.value)}
+            placeholder="Examen adaptado — Tema, unidad o descripción breve"
+            className="w-full"
+          />
+        </div>
 
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
@@ -745,9 +676,11 @@ ${tipoPreguntas === 'test' ? 'Devuelve SOLO JSON válido con esta forma exacta: 
                   className="text-sm"
                   disabled={loading}
                 />
-                {docxFile && (
-                  <span className="text-sm text-green-600">✓ {docxFile.name}</span>
-                )}
+            {(docxFile || docxSourceName) && (
+              <span className="text-sm text-green-600">
+                ✓ {docxFile?.name || docxSourceName}
+              </span>
+            )}
               </div>
               {docxText && (
                 <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">

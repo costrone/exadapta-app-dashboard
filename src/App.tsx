@@ -14,10 +14,12 @@ import { AIGenerator } from './components/AIGenerator'
 import { ModeSelector } from './components/ModeSelector'
 import { AdaptativeExamGenerator } from './components/AdaptativeExamGenerator'
 import { LoginScreen } from './components/LoginScreen'
+import { GeneratedExamHistory } from './components/GeneratedExamHistory'
 import { Button } from './ui/Button'
 import { Card } from './ui/Card'
 import { ThemeToggle } from './ui/ThemeToggle'
 import { useToast } from './ui/toast'
+import { GeneratedExamRecord } from './types/generatedExam'
 
 type Role = 'student' | 'teacher' | 'admin'
 type ExamMode = 'adaptive' | 'adapted' | null
@@ -95,6 +97,9 @@ export default function App() {
   const [role, setRole] = useState<Role>('student')
   const [tab, setTab] = useState<'test'|'dashboard'|'admin'>('test')
   const [examMode, setExamMode] = useState<ExamMode>(null)
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false)
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0)
+  const [editingGeneratedExam, setEditingGeneratedExam] = useState<GeneratedExamRecord | null>(null)
 
   const [started, setStarted] = useState(false)
   const [subject, setSubject] = useState<string>('')
@@ -120,6 +125,13 @@ export default function App() {
       setExamMode(null)
     }
   }, [tab])
+
+  useEffect(() => {
+    if (examMode === null) {
+      setShowHistoryPanel(false)
+      setEditingGeneratedExam(null)
+    }
+  }, [examMode])
 
   async function startWithBank(id:string) {
     // Reinicia el estado del test al cambiar de banco
@@ -220,23 +232,63 @@ export default function App() {
               }} />
             ) : examMode === 'adaptive' ? (
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <h2 className="text-xl font-semibold">Exámenes Adaptativos</h2>
-                  <Button onClick={() => setExamMode(null)} variant="outline" size="sm">
-                    Cambiar modo
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setExamMode('adapted')
+                        setShowHistoryPanel(true)
+                      }}
+                    >
+                      Historial
+                    </Button>
+                    <Button onClick={() => setExamMode(null)} variant="outline" size="sm">
+                      Cambiar modo
+                    </Button>
+                  </div>
                 </div>
                 <TeacherDashboard onSeedAndStart={seedAndStart} onStartWithBank={startWithBank} />
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <h2 className="text-xl font-semibold">Exámenes Adaptados</h2>
-                  <Button onClick={() => setExamMode(null)} variant="outline" size="sm">
-                    Cambiar modo
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowHistoryPanel((prev) => !prev)}
+                    >
+                      Historial
+                    </Button>
+                    <Button onClick={() => setExamMode(null)} variant="outline" size="sm">
+                      Cambiar modo
+                    </Button>
+                  </div>
                 </div>
-                <AdaptativeExamGenerator />
+                {showHistoryPanel && (
+                  <GeneratedExamHistory
+                    userId={user?.uid}
+                    refreshKey={historyRefreshKey}
+                    onClose={() => setShowHistoryPanel(false)}
+                    onEdit={(entry) => {
+                      setEditingGeneratedExam(entry)
+                      setExamMode('adapted')
+                      setShowHistoryPanel(false)
+                    }}
+                  />
+                )}
+                <AdaptativeExamGenerator
+                  userId={user?.uid}
+                  editingEntry={editingGeneratedExam}
+                  onEditCleared={() => setEditingGeneratedExam(null)}
+                  onHistorySaved={() =>
+                    setHistoryRefreshKey((prev) => prev + 1)
+                  }
+                />
               </div>
             )
           ) : tab === 'admin' && role === 'admin' ? (
