@@ -2,6 +2,7 @@ import { onRequest } from 'firebase-functions/v2/https'
 import { defineSecret } from 'firebase-functions/params'
 import * as logger from 'firebase-functions/logger'
 import fetch from 'node-fetch'
+import { jsonrepair } from 'jsonrepair'
 import corsLib from 'cors'
 
 const cors = corsLib({ origin: true })
@@ -96,16 +97,26 @@ export const generate = onRequest({ region: 'europe-west1', secrets: [GEMINI_API
     let parsed: any
     try { 
       parsed = JSON.parse(text) 
-    } catch {
-      // Intentar extraer JSON del texto si está embebido
-      const match = text.match(/\{[\s\S]*\}/)
-      if (!match) { 
-        // Si no hay JSON y no se espera texto, es un error
-        logger.error('No JSON found in response', { text: text.substring(0, 200) })
-        res.status(400).json({ error: 'Invalid JSON from model', details: 'La respuesta no contiene JSON válido' }); 
-        return 
+    } catch (parseErr) {
+      // Intentar reparar el JSON antes de fallar
+      try {
+        const repaired = jsonrepair(text)
+        parsed = JSON.parse(repaired)
+      } catch {
+        const match = text.match(/\{[\s\S]*\}/)
+        if (!match) { 
+          logger.error('No JSON found in response', { text: text.substring(0, 200) })
+          res.status(400).json({ error: 'Invalid JSON from model', details: 'La respuesta no contiene JSON válido' }); 
+          return 
+        }
+        try {
+          parsed = JSON.parse(jsonrepair(match[0]))
+        } catch {
+          logger.error('JSON repair failed', { text: text.substring(0, 200) })
+          res.status(400).json({ error: 'Invalid JSON from model', details: 'La respuesta no contiene JSON válido ni se pudo reparar.' }); 
+          return 
+        }
       }
-      parsed = JSON.parse(match[0])
     }
     const t1 = Date.now()
     logger.info('Gemini generate OK', { ms: t1 - t0, items: Array.isArray(parsed.items) ? parsed.items.length : 0 })

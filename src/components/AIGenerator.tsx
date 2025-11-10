@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { addDoc, collection } from 'firebase/firestore'
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 
 type GeneratedItem = {
@@ -9,7 +9,13 @@ type GeneratedItem = {
   level: 1|2|3|4|5
 }
 
-export function AIGenerator({ onCreated } : { onCreated: (bankId:string)=>void }) {
+type AIGeneratorProps = {
+  onCreated: (bankId: string) => void
+  currentUserId?: string | null
+  onHistorySaved?: () => void
+}
+
+export function AIGenerator({ onCreated, currentUserId, onHistorySaved } : AIGeneratorProps) {
   const [subject, setSubject] = useState('')
   const [name, setName] = useState('Banco IA')
   const [course, setCourse] = useState('')
@@ -104,6 +110,21 @@ export function AIGenerator({ onCreated } : { onCreated: (bankId:string)=>void }
         })
       }
       onCreated(bankId)
+      if (currentUserId) {
+        const summary = `${subject} — ${course}`.trim()
+        await addDoc(collection(db, 'generatedAdaptiveExams'), {
+          userId: currentUserId,
+          bankId,
+          title: name || `Banco IA — ${subject}`,
+          subject,
+          course,
+          numQuestions,
+          items,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        })
+        onHistorySaved?.()
+      }
     } catch (e:any) {
       setError(e?.message || 'Error generando banco')
     } finally {

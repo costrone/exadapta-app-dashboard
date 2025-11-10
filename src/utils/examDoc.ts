@@ -7,9 +7,6 @@ import {
   AlignmentType,
   WidthType,
   ImageRun,
-  Table,
-  TableRow,
-  TableCell,
   TabStopType,
 } from 'docx'
 
@@ -54,7 +51,7 @@ export async function createExamDoc({
     day: 'numeric',
   })
 
-  const children: (Paragraph | Table)[] = []
+  const children: Paragraph[] = []
 
   const [logoAmBytes, logoSvpBytes] = await Promise.all([
     loadImageBytes('/images/Logoam.png'),
@@ -62,60 +59,31 @@ export async function createExamDoc({
   ])
 
   if (logoAmBytes || logoSvpBytes) {
-    const cells: TableCell[] = []
+    const logoRuns: (ImageRun | TextRun)[] = []
     if (logoAmBytes) {
-      cells.push(
-        new TableCell({
-          children: [
-            new Paragraph({
-              alignment: AlignmentType.CENTER,
-              children: [
-                new ImageRun({
-                  data: logoAmBytes,
-                  transformation: { width: 80, height: 80 },
-                } as any),
-              ],
-            }),
-          ],
-          width: { size: logoSvpBytes ? 50 : 100, type: WidthType.PERCENTAGE },
-        })
+      logoRuns.push(
+        new ImageRun({
+          data: logoAmBytes,
+          transformation: { width: 80, height: 80 },
+        } as any)
       )
     }
+    if (logoAmBytes && logoSvpBytes) {
+      logoRuns.push(new TextRun({ text: '   ' }))
+    }
     if (logoSvpBytes) {
-      cells.push(
-        new TableCell({
-          children: [
-            new Paragraph({
-              alignment: AlignmentType.CENTER,
-              children: [
-                new ImageRun({
-                  data: logoSvpBytes,
-                  transformation: { width: 80, height: 80 },
-                } as any),
-              ],
-            }),
-          ],
-          width: { size: logoAmBytes ? 50 : 100, type: WidthType.PERCENTAGE },
-        })
+      logoRuns.push(
+        new ImageRun({
+          data: logoSvpBytes,
+          transformation: { width: 80, height: 80 },
+        } as any)
       )
     }
 
     children.push(
-      new Table({
-        width: {
-          size: 100,
-          type: WidthType.PERCENTAGE,
-        },
-        rows: [
-          new TableRow({
-            children: cells,
-          }),
-        ],
-      })
-    )
-    children.push(
       new Paragraph({
-        text: '',
+        alignment: AlignmentType.CENTER,
+        children: logoRuns,
         spacing: { after: 120 },
       })
     )

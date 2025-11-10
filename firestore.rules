@@ -21,6 +21,38 @@ service cloud.firestore {
       return isAuthed() && request.auth.token.email.matches(".*@colegiovicentepaul\\.es$");
     }
 
+    match /generatedAdaptiveExams/{examId} {
+      allow read: if isTeacher();
+      allow create: if isTeacher()
+                    && request.resource.data.userId == uid()
+                    && request.resource.data.keys().hasOnly([
+                      "userId",
+                      "bankId",
+                      "title",
+                      "subject",
+                      "course",
+                      "numQuestions",
+                      "items",
+                      "createdAt",
+                      "updatedAt"
+                    ]);
+      allow update: if isTeacher()
+                    && (resource.data.userId == uid() || isAdmin())
+                    && request.resource.data.userId == resource.data.userId
+                    && request.resource.data.keys().hasOnly([
+                      "userId",
+                      "bankId",
+                      "title",
+                      "subject",
+                      "course",
+                      "numQuestions",
+                      "items",
+                      "createdAt",
+                      "updatedAt"
+                    ]);
+      allow delete: if isTeacher() && (resource.data.userId == uid() || isAdmin());
+    }
+
     match /users/{userId} {
       allow create: if isAuthed()
                     && userId == uid()

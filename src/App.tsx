@@ -15,6 +15,7 @@ import { ModeSelector } from './components/ModeSelector'
 import { AdaptativeExamGenerator } from './components/AdaptativeExamGenerator'
 import { LoginScreen } from './components/LoginScreen'
 import { GeneratedExamHistory } from './components/GeneratedExamHistory'
+import { AdaptiveExamHistory } from './components/AdaptiveExamHistory'
 import { Button } from './ui/Button'
 import { Card } from './ui/Card'
 import { ThemeToggle } from './ui/ThemeToggle'
@@ -97,9 +98,12 @@ export default function App() {
   const [role, setRole] = useState<Role>('student')
   const [tab, setTab] = useState<'test'|'dashboard'|'admin'>('test')
   const [examMode, setExamMode] = useState<ExamMode>(null)
-  const [showHistoryPanel, setShowHistoryPanel] = useState(false)
-  const [historyRefreshKey, setHistoryRefreshKey] = useState(0)
+  const [showAdaptiveHistory, setShowAdaptiveHistory] = useState(false)
+  const [showAdaptedHistory, setShowAdaptedHistory] = useState(false)
+  const [adaptiveHistoryRefreshKey, setAdaptiveHistoryRefreshKey] = useState(0)
+  const [adaptedHistoryRefreshKey, setAdaptedHistoryRefreshKey] = useState(0)
   const [editingGeneratedExam, setEditingGeneratedExam] = useState<GeneratedExamRecord | null>(null)
+  const [focusBankId, setFocusBankId] = useState<string | null>(null)
 
   const [started, setStarted] = useState(false)
   const [subject, setSubject] = useState<string>('')
@@ -123,13 +127,17 @@ export default function App() {
   useEffect(() => {
     if (tab !== 'dashboard') {
       setExamMode(null)
+      setShowAdaptiveHistory(false)
+      setShowAdaptedHistory(false)
     }
   }, [tab])
 
   useEffect(() => {
     if (examMode === null) {
-      setShowHistoryPanel(false)
+      setShowAdaptiveHistory(false)
+      setShowAdaptedHistory(false)
       setEditingGeneratedExam(null)
+      setFocusBankId(null)
     }
   }, [examMode])
 
@@ -238,10 +246,7 @@ export default function App() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        setExamMode('adapted')
-                        setShowHistoryPanel(true)
-                      }}
+                      onClick={() => setShowAdaptiveHistory((prev) => !prev)}
                     >
                       Historial
                     </Button>
@@ -250,7 +255,26 @@ export default function App() {
                     </Button>
                   </div>
                 </div>
-                <TeacherDashboard onSeedAndStart={seedAndStart} onStartWithBank={startWithBank} />
+                {showAdaptiveHistory && (
+                  <AdaptiveExamHistory
+                    userId={user?.uid}
+                    refreshKey={adaptiveHistoryRefreshKey}
+                    onClose={() => setShowAdaptiveHistory(false)}
+                    onEdit={(record) => {
+                      setFocusBankId(record.bankId)
+                      setShowAdaptiveHistory(false)
+                    }}
+                  />
+                )}
+                <TeacherDashboard
+                  onSeedAndStart={seedAndStart}
+                  onStartWithBank={startWithBank}
+                  focusBankId={focusBankId}
+                  currentUserId={user?.uid}
+                  onBankGenerated={() =>
+                    setAdaptiveHistoryRefreshKey((prev) => prev + 1)
+                  }
+                />
               </div>
             ) : (
               <div className="space-y-4">
@@ -260,7 +284,7 @@ export default function App() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setShowHistoryPanel((prev) => !prev)}
+                      onClick={() => setShowAdaptedHistory((prev) => !prev)}
                     >
                       Historial
                     </Button>
@@ -269,15 +293,15 @@ export default function App() {
                     </Button>
                   </div>
                 </div>
-                {showHistoryPanel && (
+                {showAdaptedHistory && (
                   <GeneratedExamHistory
                     userId={user?.uid}
-                    refreshKey={historyRefreshKey}
-                    onClose={() => setShowHistoryPanel(false)}
+                    refreshKey={adaptedHistoryRefreshKey}
+                    onClose={() => setShowAdaptedHistory(false)}
                     onEdit={(entry) => {
                       setEditingGeneratedExam(entry)
                       setExamMode('adapted')
-                      setShowHistoryPanel(false)
+                      setShowAdaptedHistory(false)
                     }}
                   />
                 )}
@@ -286,7 +310,7 @@ export default function App() {
                   editingEntry={editingGeneratedExam}
                   onEditCleared={() => setEditingGeneratedExam(null)}
                   onHistorySaved={() =>
-                    setHistoryRefreshKey((prev) => prev + 1)
+                    setAdaptedHistoryRefreshKey((prev) => prev + 1)
                   }
                 />
               </div>
@@ -370,7 +394,19 @@ function TestView({ policy, started, level, estimate, finished, current, history
   )
 }
 
-function TeacherDashboard({ onSeedAndStart, onStartWithBank } : any) {
+function TeacherDashboard({
+  onSeedAndStart,
+  onStartWithBank,
+  focusBankId,
+  currentUserId,
+  onBankGenerated,
+} : {
+  onSeedAndStart: () => Promise<void>
+  onStartWithBank: (bankId: string) => Promise<void>
+  focusBankId?: string | null
+  currentUserId?: string | null
+  onBankGenerated?: () => void
+}) {
   const [selected, setSelected] = useState<string>('')
   const [banks, setBanks] = useState<any[]>([])
   const [attempts, setAttempts] = useState<any[]>([])
@@ -382,6 +418,12 @@ function TeacherDashboard({ onSeedAndStart, onStartWithBank } : any) {
       setBanks(snap.docs.map(d => ({ id: d.id, ...(d.data() as any)})))
     })()
   }, [])
+
+  useEffect(() => {
+    if (focusBankId) {
+      setSelected(focusBankId)
+    }
+  }, [focusBankId])
 
   useEffect(() => {
     if (!selected) return
@@ -440,7 +482,11 @@ function TeacherDashboard({ onSeedAndStart, onStartWithBank } : any) {
 
       <div className="grid lg:grid-cols-2 gap-4">
         <div className="space-y-4">
-          <AIGenerator onCreated={(id)=>{ setBanks(b=>[{ id, name: 'Banco IA', subject: '', policy: {}, scale:{} }, ...b]); setSelected(id) }} />
+          <AIGenerator
+            onCreated={(id)=>{ setBanks(b=>[{ id, name: 'Banco IA', subject: '', policy: {}, scale:{} }, ...b]); setSelected(id) }}
+            currentUserId={currentUserId}
+            onHistorySaved={onBankGenerated}
+          />
           <BankEditor onCreated={(id)=>{ setBanks(b=>[{ id, name: 'Nuevo banco', subject: '', policy: {}, scale:{} }, ...b]); setSelected(id) }} />
           {selected && <BankEditor bankId={selected} onUpdated={()=>{ /* refresh banks label */ }} />}
         </div>
