@@ -25,7 +25,7 @@ import { GeneratedExamRecord } from './types/generatedExam'
 type Role = 'student' | 'teacher' | 'admin'
 type ExamMode = 'adaptive' | 'adapted' | null
 
-const policy = { minItems: 8, maxItems: 18, stabilizationDelta: 0.25, stabilizationWindow: 3, startLevel: 3 as const }
+const policy = { minItems: 12, maxItems: 30, stabilizationDelta: 0.20, stabilizationWindow: 5, startLevel: 3 as const, semTarget: 0.30 }
 
 async function ensureUserDoc() {
   const u = auth.currentUser
@@ -173,8 +173,9 @@ export default function App() {
       startAt: new Date().toISOString(),
       status: 'active',
       history: test.history,
-      thetaEstimate: test.estimate,
-      levelEstimate: Math.round(test.estimate)
+      thetaEstimate: test.theta ?? test.estimate, // Usar theta si está disponible
+      levelEstimate: Math.round(test.estimate),
+      sem: test.sem ?? null
     })
     show('Intento guardado', 'success')
   }
@@ -330,7 +331,7 @@ export default function App() {
                   </div>
                 </div>
               )}
-              <TestView policy={policy} started={started} level={test.level} estimate={test.estimate} finished={test.finished} current={test.current} history={test.history} answer={test.answer} onBegin={()=>setStarted(true)} onSave={saveAttemptFinished} onReset={restartTest} />
+              <TestView policy={policy} started={started} level={test.level} estimate={test.estimate} theta={test.theta} sem={test.sem} finished={test.finished} current={test.current} history={test.history} answer={test.answer} onBegin={()=>setStarted(true)} onSave={saveAttemptFinished} onReset={restartTest} />
             </div>
           )}
           </Card>
@@ -340,12 +341,12 @@ export default function App() {
   )
 }
 
-function TestView({ policy, started, level, estimate, finished, current, history, answer, onBegin, onSave, onReset } : any) {
+function TestView({ policy, started, level, estimate, theta, sem, finished, current, history, answer, onBegin, onSave, onReset } : any) {
   return (
     <div>
       {!started ? (
         <div>
-          <p className="text-gray-600">Responde a cada pregunta. El nivel se ajusta automáticamente.</p>
+          <p className="text-gray-600">Responde a cada pregunta. El nivel se ajusta automáticamente usando Teoría de Respuesta al Ítem (TRI).</p>
           <div className="mt-6">
             <Button variant="primary" onClick={onBegin}>Comenzar</Button>
           </div>
@@ -353,7 +354,15 @@ function TestView({ policy, started, level, estimate, finished, current, history
       ) : finished ? (
         <div>
           <h2 className="text-xl font-semibold">Completado</h2>
-          <p className="mt-2">Nivel estimado: <strong>{estimate.toFixed(2)}</strong></p>
+          <div className="mt-2 space-y-1">
+            <p>Nivel estimado: <strong>{estimate.toFixed(2)}</strong></p>
+            {theta !== undefined && (
+              <p className="text-sm text-gray-600">Habilidad (θ): <strong>{theta.toFixed(3)}</strong></p>
+            )}
+            {sem !== null && sem !== undefined && (
+              <p className="text-sm text-gray-600">Error Estándar (SEM): <strong>{sem.toFixed(3)}</strong></p>
+            )}
+          </div>
           <div className="mt-4 flex gap-2">
             <Button onClick={onSave} variant="outline" size="sm">Guardar intento</Button>
             <Button onClick={onReset} variant="ghost" size="sm">Reiniciar test</Button>
@@ -379,7 +388,15 @@ function TestView({ policy, started, level, estimate, finished, current, history
               <div className="h-2 bg-blue-500 rounded" style={{ width: `${Math.min(((history.length + 1) / policy.maxItems) * 100, 100)}%` }} />
             </div>
           </div>
-          <div className="text-sm text-gray-500">Nivel actual: L{level}</div>
+          <div className="text-sm text-gray-500 space-y-1">
+            <div>Nivel actual: L{level}</div>
+            {theta !== undefined && (
+              <div className="text-xs">Habilidad (θ): {theta.toFixed(3)}</div>
+            )}
+            {sem !== null && sem !== undefined && (
+              <div className="text-xs">SEM: {sem.toFixed(3)}</div>
+            )}
+          </div>
           <h2 className="text-lg font-semibold mt-2">{current.stem}</h2>
           <div className="mt-4 grid gap-2">
               {current.options.map((opt:any) => (

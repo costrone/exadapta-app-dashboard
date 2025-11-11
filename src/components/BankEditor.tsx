@@ -12,6 +12,7 @@ type Policy = {
   stabilizationDelta: number
   stabilizationWindow: number
   startLevel: 1|2|3|4|5
+  semTarget?: number // Error Estándar objetivo (opcional)
 }
 
 export function BankEditor({ bankId, onCreated, onUpdated } : { bankId?: string; onCreated?: (id:string)=>void; onUpdated?: ()=>void }) {
@@ -19,7 +20,7 @@ export function BankEditor({ bankId, onCreated, onUpdated } : { bankId?: string;
   const [name, setName] = useState('')
   const [subject, setSubject] = useState('')
   const [course, setCourse] = useState('')
-  const [policy, setPolicy] = useState<Policy>({ minItems: 8, maxItems: 18, stabilizationDelta: 0.25, stabilizationWindow: 3, startLevel: 3 })
+  const [policy, setPolicy] = useState<Policy>({ minItems: 12, maxItems: 30, stabilizationDelta: 0.20, stabilizationWindow: 5, startLevel: 3, semTarget: 0.30 })
 
   useEffect(() => {
     if (!bankId) return
@@ -31,11 +32,12 @@ export function BankEditor({ bankId, onCreated, onUpdated } : { bankId?: string;
         setSubject(data.subject || '')
         setCourse(data.course || '')
         setPolicy({
-          minItems: data.policy?.minItems ?? 8,
-          maxItems: data.policy?.maxItems ?? 18,
-          stabilizationDelta: data.policy?.stabilizationDelta ?? 0.25,
-          stabilizationWindow: data.policy?.stabilizationWindow ?? 3,
+          minItems: data.policy?.minItems ?? 12,
+          maxItems: data.policy?.maxItems ?? 30,
+          stabilizationDelta: data.policy?.stabilizationDelta ?? 0.20,
+          stabilizationWindow: data.policy?.stabilizationWindow ?? 5,
           startLevel: (data.policy?.startLevel ?? 3) as 1|2|3|4|5,
+          semTarget: data.policy?.semTarget ?? 0.30,
         })
       }
     })()
@@ -76,22 +78,31 @@ export function BankEditor({ bankId, onCreated, onUpdated } : { bankId?: string;
           <Input value={course} onChange={e=>setCourse((e.target as HTMLInputElement).value)} placeholder="1º ESO, 2º Bach, etc." />
         </div>
       </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-5">
+      <div className="mt-4 grid gap-3 sm:grid-cols-6">
         <div>
           <label className="block text-sm text-gray-600 mb-1">Mín. ítems</label>
           <Input type="number" value={policy.minItems} onChange={e=>setPolicy(p=>({...p, minItems: Number((e.target as HTMLInputElement).value)}))} />
+          <span className="text-xs text-gray-500">Recomendado: 10-15</span>
         </div>
         <div>
           <label className="block text-sm text-gray-600 mb-1">Máx. ítems</label>
           <Input type="number" value={policy.maxItems} onChange={e=>setPolicy(p=>({...p, maxItems: Number((e.target as HTMLInputElement).value)}))} />
+          <span className="text-xs text-gray-500">Recomendado: 25-40</span>
         </div>
         <div>
           <label className="block text-sm text-gray-600 mb-1">Delta estabilización</label>
           <Input type="number" step="0.01" value={policy.stabilizationDelta} onChange={e=>setPolicy(p=>({...p, stabilizationDelta: Number((e.target as HTMLInputElement).value)}))} />
+          <span className="text-xs text-gray-500">Recomendado: 0.20-0.25</span>
         </div>
         <div>
           <label className="block text-sm text-gray-600 mb-1">Ventana estabilización</label>
           <Input type="number" value={policy.stabilizationWindow} onChange={e=>setPolicy(p=>({...p, stabilizationWindow: Number((e.target as HTMLInputElement).value)}))} />
+          <span className="text-xs text-gray-500">Recomendado: 5-8</span>
+        </div>
+        <div>
+          <label className="block text-sm text-gray-600 mb-1">SEM objetivo</label>
+          <Input type="number" step="0.01" value={policy.semTarget ?? ''} onChange={e=>setPolicy(p=>({...p, semTarget: e.target.value ? Number((e.target as HTMLInputElement).value) : undefined}))} placeholder="0.30" />
+          <span className="text-xs text-gray-500">Recomendado: 0.30</span>
         </div>
         <div>
           <label className="block text-sm text-gray-600 mb-1">Nivel inicial</label>

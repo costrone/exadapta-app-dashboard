@@ -30,7 +30,19 @@ export function AIGenerator({ onCreated, currentUserId, onHistorySaved } : AIGen
   const MAX_BATCH = 20
 
   async function generateBatch(batchSize: number, batchIndex: number, totalBatches: number): Promise<GeneratedItem[]> {
-    const batchPrompt = `Eres un generador de ítems para docentes en la Región de Murcia (España). Estás creando el lote ${batchIndex + 1} de ${totalBatches}. Genera ${batchSize} preguntas tipo test en español sobre ${subject} para el curso/nivel "${course}", teniendo en cuenta el currículo oficial vigente de la Región de Murcia y las últimas leyes educativas de España y de la propia Región de Murcia. Cada pregunta debe tener 4 opciones (A-D), indica la correcta en correctKey y asigna un nivel 1-5 equilibrado (1 más fácil, 5 más difícil). Evita repetir preguntas de lotes anteriores. Devuelve SOLO JSON válido con esta forma exacta: {"items":[{ "stem":"...", "options":[{"key":"A","text":"..."},{"key":"B","text":"..."},{"key":"C","text":"..."},{"key":"D","text":"..."}], "correctKey":"A|B|C|D", "level":1-5 }...]}`
+    const batchPrompt = `Eres un generador de ítems para docentes en la Región de Murcia (España). Estás creando el lote ${batchIndex + 1} de ${totalBatches}. Genera ${batchSize} preguntas tipo test en español sobre ${subject} para el curso/nivel "${course}", teniendo en cuenta el currículo oficial vigente de la Región de Murcia y las últimas leyes educativas de España y de la propia Región de Murcia. Cada pregunta debe tener 4 opciones (A-D), indica la correcta en correctKey y asigna un nivel 1-5 según estos criterios:
+
+NIVEL 1 (Muy fácil): Preguntas de memorización básica, reconocimiento de conceptos simples, definiciones directas, hechos concretos. Vocabulario simple y directo. Ejemplo: "¿Cuál es la capital de España?"
+
+NIVEL 2 (Fácil): Comprensión básica, aplicación simple de conceptos aprendidos, identificación de relaciones simples. Requiere entender el concepto pero no aplicarlo de forma compleja. Ejemplo: "Si un objeto se mueve a 10 km/h durante 2 horas, ¿qué distancia recorre?"
+
+NIVEL 3 (Intermedio): Comprensión y aplicación de conceptos, análisis básico, comparación de ideas, resolución de problemas con un paso intermedio. Requiere razonamiento pero con conceptos conocidos. Ejemplo: "¿Qué diferencia hay entre un elemento y un compuesto químico?"
+
+NIVEL 4 (Difícil): Análisis complejo, síntesis de información, aplicación de múltiples conceptos, resolución de problemas con varios pasos. Requiere pensamiento crítico y conexión de ideas. Ejemplo: "Si la población de una ciudad crece un 5% anual y actualmente tiene 100.000 habitantes, ¿cuántos tendrá en 3 años?"
+
+NIVEL 5 (Muy difícil): Evaluación, creación, problemas complejos que requieren múltiples pasos y conceptos avanzados, análisis profundo, aplicación de teoría a situaciones nuevas. Requiere pensamiento crítico avanzado y dominio del tema. Ejemplo: "Explica cómo afectaría al ecosistema marino la desaparición de los arrecifes de coral y qué medidas preventivas se podrían tomar."
+
+Distribuye los niveles de forma equilibrada en cada lote. Evita repetir preguntas de lotes anteriores. Devuelve SOLO JSON válido con esta forma exacta: {"items":[{ "stem":"...", "options":[{"key":"A","text":"..."},{"key":"B","text":"..."},{"key":"C","text":"..."},{"key":"D","text":"..."}], "correctKey":"A|B|C|D", "level":1-5 }...]}`
     const res = await fetch('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -96,7 +108,7 @@ export function AIGenerator({ onCreated, currentUserId, onHistorySaved } : AIGen
         subject,
         course,
         scale: { min: 1, max: 5 },
-        policy: { minItems: 8, maxItems: 18, stabilizationDelta: 0.25, stabilizationWindow: 3, startLevel: 3 }
+        policy: { minItems: 12, maxItems: 30, stabilizationDelta: 0.20, stabilizationWindow: 5, startLevel: 3, semTarget: 0.30 }
       })
       const bankId = bankRef.id
       for (const it of items) {
