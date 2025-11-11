@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { db } from '../lib/firebase'
+import mammoth from 'mammoth'
+import { useToast } from '../ui/toast'
 
 type GeneratedItem = {
   stem: string
@@ -16,10 +18,14 @@ type AIGeneratorProps = {
 }
 
 export function AIGenerator({ onCreated, currentUserId, onHistorySaved } : AIGeneratorProps) {
+  const { show } = useToast()
   const [subject, setSubject] = useState('')
   const [name, setName] = useState('Banco IA')
   const [course, setCourse] = useState('')
   const [numQuestions, setNumQuestions] = useState(20)
+  const [contents, setContents] = useState('') // Campo de texto para contenidos
+  const [contentsFileInfo, setContentsFileInfo] = useState<{ name: string; type: 'docx' | 'pdf' } | null>(null)
+  const [extractedContents, setExtractedContents] = useState('') // Texto extraído de archivos
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>('')
 
@@ -29,8 +35,133 @@ export function AIGenerator({ onCreated, currentUserId, onHistorySaved } : AIGen
 
   const MAX_BATCH = 20
 
+  // Funciones para extraer texto de DOCX y PDF
+  async function extractTextFromDOCX(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        try {
+          const arrayBuffer = e.target?.result as ArrayBuffer
+          const result = await mammoth.extractRawText({ arrayBuffer })
+          const text = result.value
+          
+          if (!text || text.trim().length === 0) {
+            show(`El archivo DOCX no contiene texto legible.`, 'info')
+            resolve(`[Archivo DOCX cargado: ${file.name}. No se pudo extraer texto automáticamente.]`)
+            return
+          }
+          
+          resolve(text)
+        } catch (err: any) {
+          show('Error al procesar el DOCX: ' + (err?.message || 'Error desconocido'), 'error')
+          reject(new Error('Error al procesar el archivo DOCX'))
+        }
+      }
+      reader.onerror = () => {
+        show('Error al leer el archivo DOCX', 'error')
+        reject(new Error('Error al leer el archivo'))
+      }
+      reader.readAsArrayBuffer(file)
+    })
+  }
+
+  async function extractTextFromPDF(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        try {
+          const pdfModule: any = await import('pdfjs-dist')
+          const pdfjs = pdfModule?.default ?? pdfModule
+          if (pdfjs?.GlobalWorkerOptions) {
+            const version = pdfjs.version || '5.4.394'
+            pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.js`
+          }
+          const pdf = await pdfjs.getDocument({ data: e.target?.result as ArrayBuffer }).promise
+          let text = ''
+
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i)
+            const textContent = await page.getTextContent()
+            text += textContent.items.map((item: any) => item.str || '').join(' ') + '\n'
+          }
+
+          if (!text || text.trim().length === 0) {
+            show(`No se pudo extraer texto legible del PDF.`, 'info')
+            resolve(`[Archivo PDF cargado: ${file.name}. No se pudo extraer texto automáticamente.]`)
+            return
+          }
+
+          resolve(text)
+        } catch (err: any) {
+          reject(new Error(err?.message || 'Error al procesar el PDF'))
+        }
+      }
+      reader.onerror = () => reject(new Error('Error al leer el archivo PDF'))
+      reader.readAsArrayBuffer(file)
+    })
+  }
+
+  async function handleContentsFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const nameLower = file.name.toLowerCase()
+    const isDocx = nameLower.endsWith('.docx') || nameLower.endsWith('.doc') || 
+                   file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+                   file.type === 'application/msword'
+    const isPdf = nameLower.endsWith('.pdf') || file.type === 'application/pdf'
+
+    if (!isDocx && !isPdf) {
+      show('Formato no soportado. Carga un archivo DOCX o PDF.', 'error')
+      e.target.value = ''
+      return
+    }
+
+    setLoading(true)
+    try {
+      let extracted = ''
+      if (isDocx) {
+        extracted = await extractTextFromDOCX(file)
+        setContentsFileInfo({ name: file.name, type: 'docx' })
+        show('DOCX cargado correctamente.', 'success')
+      } else {
+        extracted = await extractTextFromPDF(file)
+        setContentsFileInfo({ name: file.name, type: 'pdf' })
+        show('PDF cargado correctamente.', 'success')
+      }
+
+      if (extracted && extracted.trim().length > 0) {
+        setExtractedContents(extracted.trim())
+      }
+    } catch (err: any) {
+      show('Error al procesar el archivo: ' + (err?.message || 'Error desconocido'), 'error')
+      setContentsFileInfo(null)
+      setExtractedContents('')
+    } finally {
+      setLoading(false)
+      e.target.value = ''
+    }
+  }
+
+  function clearContentsFile() {
+    setContentsFileInfo(null)
+    setExtractedContents('')
+  }
+
   async function generateBatch(batchSize: number, batchIndex: number, totalBatches: number): Promise<GeneratedItem[]> {
-    const batchPrompt = `Eres un generador de ítems para docentes en la Región de Murcia (España). Estás creando el lote ${batchIndex + 1} de ${totalBatches}. Genera ${batchSize} preguntas tipo test en español sobre ${subject} para el curso/nivel "${course}", teniendo en cuenta el currículo oficial vigente de la Región de Murcia y las últimas leyes educativas de España y de la propia Región de Murcia. Cada pregunta debe tener 4 opciones (A-D), indica la correcta en correctKey y asigna un nivel 1-5 según estos criterios:
+    // Combinar contenidos del campo de texto y del archivo cargado
+    const allContents = [
+      contents.trim(),
+      extractedContents.trim()
+    ].filter(Boolean).join('\n\n')
+
+    // Construir la parte del prompt sobre contenidos
+    let contentsSection = ''
+    if (allContents) {
+      contentsSection = `\n\nCONTENIDOS ESPECÍFICOS SOBRE LOS QUE GENERAR LAS PREGUNTAS:\n${allContents}\n\nIMPORTANTE: Las preguntas deben estar directamente relacionadas con estos contenidos específicos. Usa estos contenidos como referencia principal para generar preguntas relevantes y precisas.`
+    }
+
+    const batchPrompt = `Eres un generador de ítems para docentes en la Región de Murcia (España). Estás creando el lote ${batchIndex + 1} de ${totalBatches}. Genera ${batchSize} preguntas tipo test en español sobre ${subject} para el curso/nivel "${course}", teniendo en cuenta el currículo oficial vigente de la Región de Murcia y las últimas leyes educativas de España y de la propia Región de Murcia.${contentsSection} Cada pregunta debe tener 4 opciones (A-D), indica la correcta en correctKey y asigna un nivel 1-5 según estos criterios:
 
 NIVEL 1 (Muy fácil): Preguntas de memorización básica, reconocimiento de conceptos simples, definiciones directas, hechos concretos. Vocabulario simple y directo. Ejemplo: "¿Cuál es la capital de España?"
 
@@ -166,6 +297,58 @@ Distribuye los niveles de forma equilibrada en cada lote. Evita repetir pregunta
           <input type="number" min={4} max={100} value={numQuestions} onChange={e=>setNumQuestions(Number(e.target.value))} className="w-full border rounded-lg px-3 py-2" />
         </div>
       </div>
+      
+      {/* Sección de contenidos */}
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">Contenidos sobre los que generar las preguntas</label>
+        <div className="space-y-2">
+          {/* Campo de texto para contenidos */}
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Descripción de contenidos (opcional)</label>
+            <textarea
+              value={contents}
+              onChange={e=>setContents(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 min-h-[80px]"
+              placeholder="Describe los contenidos específicos sobre los que quieres generar las preguntas. Puedes escribir aquí o cargar un documento DOCX/PDF."
+            />
+          </div>
+          
+          {/* Input de archivo */}
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">
+              O carga un documento DOCX/PDF con los contenidos (opcional)
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="file"
+                accept=".docx,.doc,.pdf"
+                onChange={handleContentsFileUpload}
+                disabled={loading}
+                className="text-sm border rounded-lg px-3 py-2 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              />
+              {contentsFileInfo && (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <span className="text-xs">{contentsFileInfo.name}</span>
+                  <button
+                    type="button"
+                    onClick={clearContentsFile}
+                    className="text-red-600 hover:text-red-700 text-xs"
+                    disabled={loading}
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+            </div>
+            {(contents.trim() || extractedContents.trim()) && (
+              <p className="text-xs text-green-600 mt-1">
+                ✓ Contenidos cargados. Las preguntas se generarán basándose en estos contenidos.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="flex items-center gap-2">
         <button disabled={!canGenerate} onClick={handleGenerate} className={"px-4 py-2 rounded-xl border "+(canGenerate?"bg-blue-600 text-white border-blue-600 hover:bg-blue-700":"opacity-50 cursor-not-allowed")}>{loading? 'Generando…' : 'Generar banco'}</button>
         {error && <span className="text-sm text-red-600">{error}</span>}
