@@ -78,34 +78,34 @@ export function BankEditor({ bankId, onCreated, onUpdated } : { bankId?: string;
           <Input value={course} onChange={e=>setCourse((e.target as HTMLInputElement).value)} placeholder="1º ESO, 2º Bach, etc." />
         </div>
       </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-6">
-        <div>
-          <label className="block text-sm text-gray-600 mb-1">Mín. ítems</label>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="flex flex-col space-y-1">
+          <label className="block text-sm text-gray-600">Mín. ítems</label>
           <Input type="number" value={policy.minItems} onChange={e=>setPolicy(p=>({...p, minItems: Number((e.target as HTMLInputElement).value)}))} />
-          <span className="text-xs text-gray-500">Recomendado: 10-15</span>
+          <span className="text-xs text-gray-500 mt-1">Recomendado: 10-15</span>
         </div>
-        <div>
-          <label className="block text-sm text-gray-600 mb-1">Máx. ítems</label>
+        <div className="flex flex-col space-y-1">
+          <label className="block text-sm text-gray-600">Máx. ítems</label>
           <Input type="number" value={policy.maxItems} onChange={e=>setPolicy(p=>({...p, maxItems: Number((e.target as HTMLInputElement).value)}))} />
-          <span className="text-xs text-gray-500">Recomendado: 25-40</span>
+          <span className="text-xs text-gray-500 mt-1">Recomendado: 25-40</span>
         </div>
-        <div>
-          <label className="block text-sm text-gray-600 mb-1">Delta estabilización</label>
+        <div className="flex flex-col space-y-1">
+          <label className="block text-sm text-gray-600">Delta estabilización</label>
           <Input type="number" step="0.01" value={policy.stabilizationDelta} onChange={e=>setPolicy(p=>({...p, stabilizationDelta: Number((e.target as HTMLInputElement).value)}))} />
-          <span className="text-xs text-gray-500">Recomendado: 0.20-0.25</span>
+          <span className="text-xs text-gray-500 mt-1">Recomendado: 0.20-0.25</span>
         </div>
-        <div>
-          <label className="block text-sm text-gray-600 mb-1">Ventana estabilización</label>
+        <div className="flex flex-col space-y-1">
+          <label className="block text-sm text-gray-600">Ventana estabilización</label>
           <Input type="number" value={policy.stabilizationWindow} onChange={e=>setPolicy(p=>({...p, stabilizationWindow: Number((e.target as HTMLInputElement).value)}))} />
-          <span className="text-xs text-gray-500">Recomendado: 5-8</span>
+          <span className="text-xs text-gray-500 mt-1">Recomendado: 5-8</span>
         </div>
-        <div>
-          <label className="block text-sm text-gray-600 mb-1">SEM objetivo</label>
+        <div className="flex flex-col space-y-1">
+          <label className="block text-sm text-gray-600">SEM objetivo</label>
           <Input type="number" step="0.01" value={policy.semTarget ?? ''} onChange={e=>setPolicy(p=>({...p, semTarget: e.target.value ? Number((e.target as HTMLInputElement).value) : undefined}))} placeholder="0.30" />
-          <span className="text-xs text-gray-500">Recomendado: 0.30</span>
+          <span className="text-xs text-gray-500 mt-1">Recomendado: 0.30</span>
         </div>
-        <div>
-          <label className="block text-sm text-gray-600 mb-1">Nivel inicial</label>
+        <div className="flex flex-col space-y-1">
+          <label className="block text-sm text-gray-600">Nivel inicial</label>
           <Select value={policy.startLevel} onChange={e=>setPolicy(p=>({...p, startLevel: Number((e.target as HTMLSelectElement).value) as 1|2|3|4|5}))}>
             {[1,2,3,4,5].map(n=> <option key={n} value={n}>L{n}</option>)}
           </Select>

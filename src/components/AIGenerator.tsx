@@ -280,21 +280,21 @@ Distribuye los niveles de forma equilibrada en cada lote. Evita repetir pregunta
       <h3 className="font-semibold">Generar banco con IA</h3>
       {/* Sin aviso: ahora el backend gestiona la API Key */}
       <div className="grid sm:grid-cols-4 gap-3">
-        <div>
+        <div className="flex flex-col">
           <label className="block text-sm text-gray-600 mb-1">Asignatura/tema</label>
-          <input value={subject} onChange={e=>setSubject(e.target.value)} className="w-full border rounded-lg px-3 py-2" placeholder="p. ej., historia de España" />
+          <input value={subject} onChange={e=>setSubject(e.target.value)} className="w-full border rounded-lg px-3 py-2 h-10" placeholder="p. ej., historia de España" />
         </div>
-        <div>
+        <div className="flex flex-col">
           <label className="block text-sm text-gray-600 mb-1">Nombre del banco</label>
-          <input value={name} onChange={e=>setName(e.target.value)} className="w-full border rounded-lg px-3 py-2" placeholder="Banco IA" />
+          <input value={name} onChange={e=>setName(e.target.value)} className="w-full border rounded-lg px-3 py-2 h-10" placeholder="Banco IA" />
         </div>
-        <div>
+        <div className="flex flex-col">
           <label className="block text-sm text-gray-600 mb-1">Curso/Nivel</label>
-          <input value={course} onChange={e=>setCourse(e.target.value)} className="w-full border rounded-lg px-3 py-2" placeholder="1º ESO, 2º Bach, etc." />
+          <input value={course} onChange={e=>setCourse(e.target.value)} className="w-full border rounded-lg px-3 py-2 h-10" placeholder="1º ESO, 2º Bach, etc." />
         </div>
-        <div>
+        <div className="flex flex-col">
           <label className="block text-sm text-gray-600 mb-1">Número de preguntas</label>
-          <input type="number" min={4} max={100} value={numQuestions} onChange={e=>setNumQuestions(Number(e.target.value))} className="w-full border rounded-lg px-3 py-2" />
+          <input type="number" min={4} max={100} value={numQuestions} onChange={e=>setNumQuestions(Number(e.target.value))} className="w-full border rounded-lg px-3 py-2 h-10" />
         </div>
       </div>
       
